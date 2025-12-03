@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "My people",
+    "slug": "consent-location",
+    "scheme": "consentlocation",
+    "version": "1.0.0",
+  "orientation": "portrait",
+    
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {},
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-asset"
+    ]
+  }
+}
