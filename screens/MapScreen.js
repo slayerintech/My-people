@@ -1,17 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Dimensions } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
-import { useApp } from '../context/AppContext';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '../firebaseConfig';
 import { colors } from '../theme';
 
 export default function MapScreen({ route }) {
   const { uid } = route.params;
   const [target, setTarget] = useState(null);
-  const { usersById } = useApp();
-
   useEffect(() => {
-    setTarget(usersById[uid] || null);
-  }, [uid, usersById]);
+    const unsub = onSnapshot(doc(db, 'users', uid), (snap) => setTarget(snap.data() || null));
+    return () => unsub();
+  }, [uid]);
 
   const region = target?.location
     ? {

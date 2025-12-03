@@ -2,22 +2,35 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { colors, radius, shadow } from '../theme';
 import { useApp } from '../context/AppContext';
+import { auth, db } from '../firebaseConfig';
+import { arrayUnion, doc, getDoc, updateDoc } from 'firebase/firestore';
 
 export default function PairingScreen() {
-  const { user, addFollow, usersById } = useApp();
+  const { user } = useApp();
   const [code, setCode] = useState('');
   const [followed, setFollowed] = useState([]);
 
   useEffect(() => {
-    setFollowed(usersById[user?.uid]?.followedUsers || []);
+    const load = async () => {
+      if (!auth.currentUser) return;
+      const ref = doc(db, 'users', auth.currentUser.uid);
+      const snap = await getDoc(ref);
+      setFollowed(snap.data()?.followedUsers || []);
+    };
+    load();
   }, []);
 
   const onAddFollow = async () => {
-    if (!code.trim()) return;
-    addFollow(code.trim());
-    setCode('');
-    Alert.alert('Success', 'User code added. You can view their location when sharing is ON.');
-    setFollowed(usersById[user?.uid]?.followedUsers || []);
+    try {
+      if (!code.trim()) return;
+      await updateDoc(doc(db, 'users', auth.currentUser.uid), { followedUsers: arrayUnion(code.trim()) });
+      setCode('');
+      Alert.alert('Success', 'User code added. You can view their location when sharing is ON.');
+      const snap = await getDoc(doc(db, 'users', auth.currentUser.uid));
+      setFollowed(snap.data()?.followedUsers || []);
+    } catch (e) {
+      Alert.alert('Error', e.message);
+    }
   };
 
   return (

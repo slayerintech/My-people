@@ -2,20 +2,36 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, Alert } from 'react-native';
 import { colors, radius, shadow } from '../theme';
 import { useApp } from '../context/AppContext';
+import { auth, db } from '../firebaseConfig';
+import { doc, getDoc } from 'firebase/firestore';
 
 export default function ViewLocationsScreen({ navigation }) {
-  const { user, usersById } = useApp();
+  const { user } = useApp();
   const [followed, setFollowed] = useState([]);
   const [profiles, setProfiles] = useState([]);
 
   useEffect(() => {
-    const list = usersById[user?.uid]?.followedUsers || [];
-    setFollowed(list);
-    const profs = list.map((uid) => {
-      const d = usersById[uid];
-      return { uid, name: d?.name || uid, sharingEnabled: Boolean(d?.sharingEnabled) };
-    });
-    setProfiles(profs);
+    const load = async () => {
+      try {
+        if (!auth.currentUser) return;
+        const ref = doc(db, 'users', auth.currentUser.uid);
+        const snap = await getDoc(ref);
+        const list = snap.data()?.followedUsers || [];
+        setFollowed(list);
+        const profs = [];
+        for (const uid of list) {
+          const s = await getDoc(doc(db, 'users', uid));
+          if (s.exists()) {
+            const d = s.data();
+            profs.push({ uid, name: d.name || uid, sharingEnabled: d.sharingEnabled });
+          }
+        }
+        setProfiles(profs);
+      } catch (e) {
+        Alert.alert('Error', e.message);
+      }
+    };
+    load();
   }, []);
 
   return (

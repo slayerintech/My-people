@@ -2,21 +2,28 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, Switch, TouchableOpacity, Alert } from 'react-native';
 import { colors, radius, shadow } from '../theme';
 import { useApp } from '../context/AppContext';
+import { auth, db } from '../firebaseConfig';
+import { doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { deleteUser } from 'firebase/auth';
 
 export default function SettingsScreen() {
-  const { user, usersById, toggleAllowFollow, deleteAccount } = useApp();
+  const { user } = useApp();
   const [profile, setProfile] = useState(null);
   const [allow, setAllow] = useState(true);
 
   useEffect(() => {
-    const data = usersById[user?.uid];
-    setProfile(data);
-    setAllow(Boolean(data?.allowFollow));
+    const load = async () => {
+      const snap = await getDoc(doc(db, 'users', auth.currentUser.uid));
+      const data = snap.data();
+      setProfile(data);
+      setAllow(Boolean(data?.allowFollow));
+    };
+    load();
   }, []);
 
   const toggleAllow = async (value) => {
     setAllow(value);
-    toggleAllowFollow(value);
+    await updateDoc(doc(db, 'users', auth.currentUser.uid), { allowFollow: value });
   };
 
   const onDeleteAccount = async () => {
@@ -24,7 +31,8 @@ export default function SettingsScreen() {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: async () => {
         try {
-          deleteAccount();
+          await deleteDoc(doc(db, 'users', auth.currentUser.uid));
+          await deleteUser(auth.currentUser);
         } catch (e) {
           Alert.alert('Error', e.message);
         }
