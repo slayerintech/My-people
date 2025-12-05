@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import * as AuthSession from 'expo-auth-session';
+import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
+import { auth } from '../firebaseConfig';
 import { colors, radius, shadow } from '../theme';
 import { useApp } from '../context/AppContext';
 
@@ -17,7 +21,7 @@ export function LoginScreen({ navigation }) {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background, padding: 24, gap: 16 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, padding: 24, gap: 16 }}>
       <Text style={{ color: colors.primaryText, fontSize: 24, fontWeight: '600' }}>Login</Text>
       <Card>
         <Label>Email</Label>
@@ -25,9 +29,10 @@ export function LoginScreen({ navigation }) {
         <Label>Password</Label>
         <Field value={password} onChangeText={setPassword} placeholder="••••••••" secureTextEntry />
         <PrimaryButton title="Login" onPress={onLogin} />
+        <GoogleButton />
         <SecondaryLink title="Create account" onPress={() => navigation.navigate('Signup')} />
       </Card>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -46,7 +51,7 @@ export function SignupScreen({ navigation }) {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background, padding: 24, gap: 16 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, padding: 24, gap: 16 }}>
       <Text style={{ color: colors.primaryText, fontSize: 24, fontWeight: '600' }}>Create Account</Text>
       <Card>
         <Label>Name</Label>
@@ -58,7 +63,7 @@ export function SignupScreen({ navigation }) {
         <PrimaryButton title="Sign Up" onPress={onSignup} />
         <SecondaryLink title="Back to login" onPress={() => navigation.navigate('Login')} />
       </Card>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -88,6 +93,28 @@ function PrimaryButton({ title, onPress }) {
   return (
     <TouchableOpacity onPress={onPress} style={{ backgroundColor: colors.accent, borderRadius: radius, padding: 14, alignItems: 'center', ...shadow }}>
       <Text style={{ color: colors.primaryText, fontWeight: '600' }}>{title}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function GoogleButton() {
+  const onGoogle = async () => {
+    try {
+      const redirectUri = AuthSession.makeRedirectUri({ useProxy: true });
+      const result = await AuthSession.startAsync({
+        authUrl: `https://accounts.google.com/o/oauth2/v2/auth?response_type=id_token&client_id=${process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=openid%20email%20profile`,
+      });
+      if (result.type === 'success' && result.params?.id_token) {
+        const credential = GoogleAuthProvider.credential(result.params.id_token);
+        await signInWithCredential(auth, credential);
+      }
+    } catch (e) {
+      Alert.alert('Google login failed', e.message);
+    }
+  };
+  return (
+    <TouchableOpacity onPress={onGoogle} style={{ backgroundColor: '#1F2234', borderRadius: radius, padding: 14, alignItems: 'center' }}>
+      <Text style={{ color: colors.secondaryText }}>Continue with Google</Text>
     </TouchableOpacity>
   );
 }

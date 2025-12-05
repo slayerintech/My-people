@@ -11,6 +11,9 @@ import ShareLocationScreen from './screens/ShareLocationScreen';
 import ViewLocationsScreen from './screens/ViewLocationsScreen';
 import MapScreen from './screens/MapScreen';
 import SettingsScreen from './screens/SettingsScreen';
+import PrivacyPolicyScreen from './screens/PrivacyPolicyScreen';
+import TermsScreen from './screens/TermsScreen';
+import SubscriptionScreen from './screens/SubscriptionScreen';
 import PairingScreen from './screens/PairingScreen';
 import { Ionicons } from '@expo/vector-icons';
 import { AppProvider, useApp } from './context/AppContext';
@@ -39,6 +42,9 @@ function InnerApp() {
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen name="MainTabs" component={MainTabs} />
           <Stack.Screen name="Map" component={MapScreen} />
+          <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
+          <Stack.Screen name="Terms" component={TermsScreen} />
+          <Stack.Screen name="Subscription" component={SubscriptionScreen} />
         </Stack.Navigator>
       ) : (
         <Stack.Navigator screenOptions={{ headerShown: false }}>

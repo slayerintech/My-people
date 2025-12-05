@@ -8,6 +8,7 @@ const AppContext = createContext(null);
 export function AppProvider({ children }) {
   const [user, setUser] = useState(null);
   const [usersById, setUsersById] = useState({});
+  const [mapMode, setMapMode] = useState('traffic');
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
@@ -122,7 +123,7 @@ export function AppProvider({ children }) {
     setUser(null);
   };
 
-  const value = useMemo(() => ({ user, usersById, signup, login, logout, updateLocation, setSharingEnabled, addFollow, getUser, toggleAllowFollow, deleteAccount }), [user, usersById]);
+  const value = useMemo(() => ({ user, usersById, mapMode, setMapMode, signup, login, logout, updateLocation, setSharingEnabled, addFollow, getUser, toggleAllowFollow, deleteAccount }), [user, usersById, mapMode]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
