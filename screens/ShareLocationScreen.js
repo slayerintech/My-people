@@ -1,14 +1,19 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { useApp } from '../context/AppContext';
 import { colors, radius, shadow } from '../theme';
+import * as TaskManager from 'expo-task-manager';
+import { auth, db } from '../firebaseConfig';
+import { doc, updateDoc } from 'firebase/firestore';
 
 export default function ShareLocationScreen() {
   const { user, updateLocation, setSharingEnabled } = useApp();
   const [sharing, setSharing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   const watcherRef = useRef(null);
+  const TASK_NAME = 'BACKGROUND_LOCATION_TASK';
 
   useEffect(() => {
     setSharing(Boolean(user?.sharingEnabled));
@@ -32,6 +37,12 @@ export default function ShareLocationScreen() {
         return;
       }
 
+      // Try background permission for continuous updates
+      const bg = await Location.requestBackgroundPermissionsAsync();
+      if (bg.status !== 'granted') {
+        // Still proceed with foreground sharing; background may be unavailable
+      }
+
       // Start watching position with high accuracy and regular updates
       watcherRef.current = await Location.watchPositionAsync(
         {
@@ -46,6 +57,18 @@ export default function ShareLocationScreen() {
           setSharing(true);
         }
       );
+
+      // Start background updates if permission granted
+      if (bg.status === 'granted') {
+        await Location.startLocationUpdatesAsync(TASK_NAME, {
+          accuracy: Location.Accuracy.High,
+          timeInterval: 15000,
+          distanceInterval: 25,
+          pausesUpdatesAutomatically: true,
+          showsBackgroundLocationIndicator: true
+        });
+      }
+      setSharingEnabled(true);
     } catch (e) {
       Alert.alert('Error starting sharing', e.message);
     }
@@ -57,6 +80,9 @@ export default function ShareLocationScreen() {
         watcherRef.current.remove();
         watcherRef.current = null;
       }
+      try {
+        await Location.stopLocationUpdatesAsync(TASK_NAME);
+      } catch {}
       setSharingEnabled(false);
       setSharing(false);
     } catch (e) {
@@ -65,7 +91,7 @@ export default function ShareLocationScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background, padding: 24, gap: 16 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, padding: 24, gap: 16 }}>
       <View style={{ backgroundColor: colors.card, borderRadius: radius, padding: 16, gap: 12, ...shadow }}>
         <Text style={{ color: colors.primaryText, fontSize: 18, fontWeight: '600' }}>Share My Location</Text>
         <Text style={{ color: colors.secondaryText }}>
@@ -86,35 +112,19 @@ export default function ShareLocationScreen() {
           Location is only shared when you turn it ON. You can stop anytime.
         </Text>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
-// Optional: Background location updates using expo-task-manager
-// This shows how to set up a background task that keeps sending
-// updates even when the app is minimized. Background behavior and
-// frequency are subject to OS limitations.
-//
-// import * as TaskManager from 'expo-task-manager';
-// const TASK_NAME = 'BACKGROUND_LOCATION_TASK';
-// TaskManager.defineTask(TASK_NAME, async ({ data, error }) => {
-//   if (error) return;
-//   const { locations } = data;
-//   const loc = locations?.[0];
-//   if (!loc || !auth.currentUser) return;
-//   await updateDoc(doc(db, 'users', auth.currentUser.uid), {
-//     sharingEnabled: true,
-//     location: { lat: loc.coords.latitude, lng: loc.coords.longitude, lastUpdated: Date.now() }
-//   });
-// });
-//
-// To start background updates:
-// await Location.startLocationUpdatesAsync(TASK_NAME, {
-//   accuracy: Location.Accuracy.High,
-//   timeInterval: 15000,
-//   distanceInterval: 25,
-//   pausesUpdatesAutomatically: true,
-//   showsBackgroundLocationIndicator: true
-// });
-// To stop:
-// await Location.stopLocationUpdatesAsync(TASK_NAME);
+TaskManager.defineTask('BACKGROUND_LOCATION_TASK', async ({ data, error }) => {
+  if (error) return;
+  const { locations } = data || {};
+  const loc = locations?.[0];
+  if (!loc || !auth.currentUser) return;
+  try {
+    await updateDoc(doc(db, 'users', auth.currentUser.uid), {
+      sharingEnabled: true,
+      location: { lat: loc.coords.latitude, lng: loc.coords.longitude, lastUpdated: Date.now() }
+    });
+  } catch {}
+});

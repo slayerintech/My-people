@@ -85,7 +85,17 @@ export function AppProvider({ children }) {
 
   const addFollow = async (uid) => {
     if (!auth.currentUser || !uid) return;
+    // Add to current user's followed list
     await updateDoc(doc(db, 'users', auth.currentUser.uid), { followedUsers: arrayUnion(uid) });
+    // Also add current user to target's visibleTo if allowed
+    const targetRef = doc(db, 'users', uid);
+    const targetSnap = await getDoc(targetRef);
+    if (targetSnap.exists()) {
+      const t = targetSnap.data();
+      if (t.allowFollow !== false) {
+        await updateDoc(targetRef, { visibleTo: arrayUnion(auth.currentUser.uid) });
+      }
+    }
     const snap = await getDoc(doc(db, 'users', auth.currentUser.uid));
     const data = snap.data();
     setUsersById((prev) => ({ ...prev, [auth.currentUser.uid]: data }));

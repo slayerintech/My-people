@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, radius, shadow } from '../theme';
 import { useApp } from '../context/AppContext';
 import { auth, db } from '../firebaseConfig';
@@ -23,9 +24,19 @@ export default function PairingScreen() {
   const onAddFollow = async () => {
     try {
       if (!code.trim()) return;
-      await updateDoc(doc(db, 'users', auth.currentUser.uid), { followedUsers: arrayUnion(code.trim()) });
+      const targetUid = code.trim();
+      await updateDoc(doc(db, 'users', auth.currentUser.uid), { followedUsers: arrayUnion(targetUid) });
+      // Two-way visibleTo: add me to target's visibleTo if they allow follow
+      const targetRef = doc(db, 'users', targetUid);
+      const targetSnap = await getDoc(targetRef);
+      if (targetSnap.exists()) {
+        const t = targetSnap.data();
+        if (t.allowFollow !== false) {
+          await updateDoc(targetRef, { visibleTo: arrayUnion(auth.currentUser.uid) });
+        }
+      }
       setCode('');
-      Alert.alert('Success', 'User code added. You can view their location when sharing is ON.');
+      Alert.alert('Success', 'Linked. You will see their location when they share and allow visibility.');
       const snap = await getDoc(doc(db, 'users', auth.currentUser.uid));
       setFollowed(snap.data()?.followedUsers || []);
     } catch (e) {
@@ -34,7 +45,7 @@ export default function PairingScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background, padding: 24, gap: 16 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, padding: 24, gap: 16 }}>
       <View style={{ backgroundColor: colors.card, borderRadius: radius, padding: 16, gap: 12, ...shadow }}>
         <Text style={{ color: colors.primaryText, fontSize: 18, fontWeight: '600' }}>Pairing / Linking</Text>
         <Text style={{ color: colors.secondaryText }}>Your Share Code: {user?.uid}</Text>
@@ -60,6 +71,6 @@ export default function PairingScreen() {
           ))
         )}
       </View>
-    </View>
+    </SafeAreaView>
   );
 }

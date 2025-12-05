@@ -1,32 +1,45 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import MapView, { Marker } from 'react-native-maps';
+import * as Location from 'expo-location';
 import { colors, radius, shadow } from '../theme';
 import { useApp } from '../context/AppContext';
 import { auth, db } from '../firebaseConfig';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 
-export default function ViewLocationsScreen({ navigation }) {
+export default function ViewLocationsScreen() {
   const { user } = useApp();
-  const [followed, setFollowed] = useState([]);
-  const [profiles, setProfiles] = useState([]);
+  const [myLoc, setMyLoc] = useState(null);
+  const [targets, setTargets] = useState([]);
 
   useEffect(() => {
     const load = async () => {
       try {
-        if (!auth.currentUser) return;
-        const ref = doc(db, 'users', auth.currentUser.uid);
-        const snap = await getDoc(ref);
-        const list = snap.data()?.followedUsers || [];
-        setFollowed(list);
-        const profs = [];
-        for (const uid of list) {
-          const s = await getDoc(doc(db, 'users', uid));
-          if (s.exists()) {
-            const d = s.data();
-            profs.push({ uid, name: d.name || uid, sharingEnabled: d.sharingEnabled });
-          }
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission required', 'Allow location to view your position on the map.');
+          return;
         }
-        setProfiles(profs);
+        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        setMyLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        if (!auth.currentUser) return;
+        // Load followed list and subscribe to each user doc for live updates
+        const meSnap = await getDoc(doc(db, 'users', auth.currentUser.uid));
+        const list = meSnap.data()?.followedUsers || [];
+        const unsubs = [];
+        list.forEach((uid) => {
+          const unsub = onSnapshot(doc(db, 'users', uid), (snap) => {
+            const d = snap.data();
+            setTargets((prev) => {
+              const next = prev.filter((p) => p.uid !== uid);
+              next.push({ uid, data: d });
+              return next;
+            });
+          });
+          unsubs.push(unsub);
+        });
+        return () => unsubs.forEach((u) => u());
       } catch (e) {
         Alert.alert('Error', e.message);
       }
@@ -34,21 +47,31 @@ export default function ViewLocationsScreen({ navigation }) {
     load();
   }, []);
 
+  const region = myLoc
+    ? { latitude: myLoc.lat, longitude: myLoc.lng, latitudeDelta: 0.02, longitudeDelta: 0.02 }
+    : { latitude: 37.78825, longitude: -122.4324, latitudeDelta: 0.0922, longitudeDelta: 0.0421 };
+
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background, padding: 24, gap: 12 }}>
-      <Text style={{ color: colors.primaryText, fontSize: 18, fontWeight: '600' }}>Followed Users</Text>
-      <View style={{ backgroundColor: colors.card, borderRadius: radius, padding: 16, gap: 12, ...shadow }}>
-        {profiles.length === 0 ? (
-          <Text style={{ color: colors.secondaryText }}>No users followed yet. Add from Pair tab.</Text>
-        ) : (
-          profiles.map((p) => (
-            <TouchableOpacity key={p.uid} onPress={() => navigation.navigate('Map', { uid: p.uid })} style={{ backgroundColor: '#1F2234', borderRadius: radius, padding: 12 }}>
-              <Text style={{ color: colors.primaryText, fontWeight: '600' }}>{p.name}</Text>
-              <Text style={{ color: colors.secondaryText }}>Status: {p.sharingEnabled ? 'Sharing' : 'Not sharing'}</Text>
-            </TouchableOpacity>
-          ))
-        )}
-      </View>
-    </View>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <MapView style={{ flex: 1 }} initialRegion={region} region={region}>
+        {myLoc ? (
+          <Marker coordinate={{ latitude: myLoc.lat, longitude: myLoc.lng }} title={user?.displayName || 'Me'} />
+        ) : null}
+        {targets.map((t) => {
+          const d = t.data;
+          const allowed = Array.isArray(d?.visibleTo) ? d.visibleTo.includes(auth.currentUser.uid) : false;
+          if (d?.sharingEnabled && d?.location && allowed) {
+            return (
+              <Marker
+                key={t.uid}
+                coordinate={{ latitude: d.location.lat, longitude: d.location.lng }}
+                title={d.name || t.uid}
+              />
+            );
+          }
+          return null;
+        })}
+      </MapView>
+    </SafeAreaView>
   );
 }

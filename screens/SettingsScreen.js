@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Switch, TouchableOpacity, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Location from 'expo-location';
 import { colors, radius, shadow } from '../theme';
 import { useApp } from '../context/AppContext';
 import { auth, db } from '../firebaseConfig';
@@ -7,7 +9,7 @@ import { doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { deleteUser } from 'firebase/auth';
 
 export default function SettingsScreen() {
-  const { user } = useApp();
+  const { user, logout } = useApp();
   const [profile, setProfile] = useState(null);
   const [allow, setAllow] = useState(true);
 
@@ -40,8 +42,19 @@ export default function SettingsScreen() {
     ]);
   };
 
+  const onLogout = async () => {
+    try {
+      try {
+        await Location.stopLocationUpdatesAsync('BACKGROUND_LOCATION_TASK');
+      } catch {}
+      await logout();
+    } catch (e) {
+      Alert.alert('Logout failed', e.message);
+    }
+  };
+
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background, padding: 24, gap: 16 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, padding: 24, gap: 16 }}>
       <View style={{ backgroundColor: colors.card, borderRadius: radius, padding: 16, gap: 12, ...shadow }}>
         <Text style={{ color: colors.primaryText, fontSize: 18, fontWeight: '600' }}>Settings & Privacy</Text>
         <Text style={{ color: colors.secondaryText }}>Name: {profile?.name || 'Unknown'}</Text>
@@ -50,6 +63,9 @@ export default function SettingsScreen() {
           <Text style={{ color: colors.primaryText }}>Allow others to follow me using my code</Text>
           <Switch value={allow} onValueChange={toggleAllow} trackColor={{ false: '#777', true: colors.accent }} thumbColor={colors.primaryText} />
         </View>
+        <TouchableOpacity onPress={onLogout} style={{ backgroundColor: colors.accent, borderRadius: radius, padding: 12, alignItems: 'center', ...shadow }}>
+          <Text style={{ color: colors.primaryText, fontWeight: '600' }}>Log Out</Text>
+        </TouchableOpacity>
         <TouchableOpacity onPress={onDeleteAccount} style={{ backgroundColor: '#1F2234', borderRadius: radius, padding: 12, alignItems: 'center' }}>
           <Text style={{ color: colors.secondaryText }}>Delete my account and all my data</Text>
         </TouchableOpacity>
@@ -59,6 +75,6 @@ export default function SettingsScreen() {
           Location is only shared when you turn it ON. You can turn it OFF anytime. This app is for consent-based safety and family use.
         </Text>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }

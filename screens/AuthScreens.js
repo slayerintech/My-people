@@ -9,7 +9,11 @@ export function LoginScreen({ navigation }) {
   const [password, setPassword] = useState('');
 
   const onLogin = async () => {
-    login(email.trim(), password);
+    try {
+      await login(email.trim(), password);
+    } catch (e) {
+      Alert.alert('Login failed', e.message);
+    }
   };
 
   return (
@@ -34,7 +38,11 @@ export function SignupScreen({ navigation }) {
   const [password, setPassword] = useState('');
 
   const onSignup = async () => {
-    signup(name, email.trim());
+    try {
+      await signup(name, email.trim(), password);
+    } catch (e) {
+      Alert.alert('Signup failed', e.message);
+    }
   };
 
   return (

@@ -1,12 +1,13 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, radius, shadow } from '../theme';
 import { useApp } from '../context/AppContext';
 
 export default function HomeScreen({ navigation }) {
   const { user } = useApp();
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background, padding: 24 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, padding: 24 }}>
       <View style={{ backgroundColor: colors.card, borderRadius: radius, padding: 16, marginBottom: 16, ...shadow }}>
         <Text style={{ color: colors.primaryText, fontSize: 20, fontWeight: '600' }}>Hi {user?.displayName || 'there'} 👋</Text>
         <Text style={{ color: colors.secondaryText, marginTop: 8 }}>
@@ -21,6 +22,6 @@ export default function HomeScreen({ navigation }) {
           <Text style={{ color: colors.primaryText, fontWeight: '600' }}>View Locations</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }

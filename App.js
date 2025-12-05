@@ -3,7 +3,7 @@ import { View, ActivityIndicator } from 'react-native';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { colors } from './theme';
+import { colors, radius, shadow } from './theme';
 import WelcomeScreen from './screens/WelcomeScreen';
 import { LoginScreen, SignupScreen } from './screens/AuthScreens';
 import HomeScreen from './screens/HomeScreen';
@@ -57,9 +57,16 @@ function MainTabs() {
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarStyle: {
+          position: 'absolute',
+          left: 16,
+          right: 16,
+          bottom: 12,
           backgroundColor: colors.card,
           borderTopWidth: 0,
-          height: 72,
+          height: 64,
+          borderRadius: radius,
+          paddingBottom: 8,
+          ...shadow
         },
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.secondaryText,
