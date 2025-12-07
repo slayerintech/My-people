@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Switch, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, Switch, TouchableOpacity, Alert, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Popup from '../components/Popup';
 import * as Location from 'expo-location';
@@ -20,10 +20,14 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     const load = async () => {
-      const snap = await getDoc(doc(db, 'users', auth.currentUser.uid));
-      const data = snap.data();
-      setProfile(data);
-      setAllow(Boolean(data?.allowFollow));
+      try {
+        const snap = await getDoc(doc(db, 'users', auth.currentUser.uid));
+        const data = snap.data();
+        setProfile(data);
+        setAllow(Boolean(data?.allowFollow));
+      } catch (e) {
+        setProfile({ name: auth.currentUser?.displayName || '', email: auth.currentUser?.email || '', photoURL: auth.currentUser?.photoURL || '' });
+      }
     };
     load();
   }, []);
@@ -48,7 +52,7 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, padding: 24, gap: 16 }}>
-      <ProfileCard name={profile?.name || 'Unknown'} email={profile?.email || ''} />
+      <ProfileCard name={profile?.name ?? user?.displayName ?? 'Unknown'} email={profile?.email ?? user?.email ?? ''} planTitle={profile?.planTitle} />
       <Section title="Privacy">
         <RowSwitch icon="lock-closed" label="Allow follow via code" value={allow} onValueChange={toggleAllow} />
       </Section>
@@ -86,7 +90,7 @@ function Section({ title, children }) {
   return (
     <View style={{ gap: 10 }}>
       <Text style={{ color: colors.secondaryText, fontSize: 14 }}>{title}</Text>
-      <View style={{ backgroundColor: colors.card, borderRadius: radius, overflow: 'hidden', ...shadow }}>
+      <View style={{ backgroundColor: colors.card, borderRadius: radius, overflow: 'visible', ...shadow }}>
         {children}
       </View>
     </View>
@@ -148,16 +152,15 @@ function RowAction({ icon, label, onPress, accent }) {
   );
 }
 
-function ProfileCard({ name, email }) {
+function ProfileCard({ name, email, planTitle }) {
   return (
-    <View style={{ backgroundColor: colors.card, borderRadius: radius, padding: 20, flexDirection: 'row', alignItems: 'center', gap: 16, ...shadow }}>
-      <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#1F2234', alignItems: 'center', justifyContent: 'center' }}>
-        <Ionicons name="person" color={colors.accent} size={28} />
+    <View style={{ backgroundColor: colors.card, borderRadius: radius, padding: 20, alignItems: 'center', gap: 10, ...shadow }}>
+      <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: '#1F2234', alignItems: 'center', justifyContent: 'center' }}>
+        <Ionicons name="person" color={colors.accent} size={30} />
       </View>
-      <View style={{ flex: 1 }}>
-        <Text style={{ color: colors.primaryText, fontSize: 18, fontWeight: '600' }}>{name}</Text>
-        <Text style={{ color: colors.secondaryText, fontSize: 14, marginTop: 4 }}>{email}</Text>
-      </View>
+      <Text style={{ color: colors.primaryText, fontSize: 18, fontWeight: '600', textAlign: 'center' }}>{name}</Text>
+      <Text style={{ color: colors.secondaryText, fontSize: 14, textAlign: 'center' }}>{planTitle ? planTitle : 'Free User'}</Text>
+      <Text style={{ color: colors.secondaryText, fontSize: 14, textAlign: 'center' }}>{email}</Text>
     </View>
   );
 }

@@ -1,9 +1,9 @@
-import React, { useMemo } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import React, { useMemo, useRef, useEffect } from 'react';
+import { View, ActivityIndicator, Animated } from 'react-native';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { colors, radius, shadow } from './theme';
+import { colors, radius } from './theme';
 import WelcomeScreen from './screens/WelcomeScreen';
 import { LoginScreen, SignupScreen } from './screens/AuthScreens';
 import HomeScreen from './screens/HomeScreen';
@@ -57,6 +57,18 @@ function InnerApp() {
   );
 }
 
+function AnimatedTabIcon({ name, color, size, focused }) {
+  const scale = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    Animated.spring(scale, { toValue: focused ? 1.1 : 1, useNativeDriver: true }).start();
+  }, [focused]);
+  return (
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <Ionicons name={name} color={color} size={size} />
+    </Animated.View>
+  );
+}
+
 function MainTabs() {
   return (
     <Tab.Navigator
@@ -72,23 +84,22 @@ function MainTabs() {
           height: 64,
           borderRadius: radius,
           paddingBottom: 8,
-          ...shadow
+          elevation: 0,
+          shadowColor: 'transparent',
+          shadowOpacity: 0,
+          shadowRadius: 0
         },
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.secondaryText,
-        tabBarIcon: ({ color, size }) => {
+        tabBarIcon: ({ color, size, focused }) => {
           const name = route.name === 'Home' ? 'home' :
-            route.name === 'Share' ? 'location' :
-            route.name === 'View' ? 'map' :
-            route.name === 'Pair' ? 'link' : 'settings';
-          return <Ionicons name={name} color={color} size={size} />;
+            route.name === 'View' ? 'map' : 'settings';
+          return <AnimatedTabIcon name={name} color={color} size={size} focused={focused} />;
         }
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Share" component={ShareLocationScreen} />
       <Tab.Screen name="View" component={ViewLocationsScreen} />
-      <Tab.Screen name="Pair" component={PairingScreen} />
       <Tab.Screen name="Settings" component={SettingsScreen} />
     </Tab.Navigator>
   );

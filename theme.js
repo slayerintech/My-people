@@ -10,10 +10,10 @@ export const colors = {
 
 export const shadow = {
   shadowColor: colors.accent,
-  shadowOffset: { width: 0, height: 12 },
-  shadowOpacity: 0.25,
-  shadowRadius: 16,
-  elevation: 8
+  shadowOffset: { width: 0, height: 8 },
+  shadowOpacity: 0.35,
+  shadowRadius: 20,
+  elevation: 12
 };
 
 export const radius = 20;

@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Alert } from 'react-native';
+import { View, Text, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import MapView from 'react-native-maps';
-import UserMarker from '../components/UserMarker';
+const MapViewComp = Platform.OS === 'web' ? null : require('react-native-maps').default;
+const UserMarker = Platform.OS === 'web' ? null : require('../components/UserMarker').default;
 import * as Location from 'expo-location';
 import { colors, radius, shadow } from '../theme';
 import { useApp } from '../context/AppContext';
@@ -15,24 +15,17 @@ export default function ViewLocationsScreen() {
   const [targets, setTargets] = useState([]);
   const [mode, setMode] = useState('traffic');
   const mapStyle = [
-    { elementType: 'geometry', stylers: [{ color: '#1A1D2E' }] },
-    { elementType: 'labels.text.stroke', stylers: [{ color: '#1A1D2E' }] },
-    { elementType: 'labels.text.fill', stylers: [{ color: '#8E99B0' }] },
-    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2A2F45' }] },
-    { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#8E99B0' }] },
-    { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#24283C' }] },
-    { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#1F2234' }] },
-    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#151828' }] },
-  ];
-  const lightStyle = [
     { elementType: 'geometry', stylers: [{ color: '#FFFFFF' }] },
     { elementType: 'labels.text.stroke', stylers: [{ color: '#FFFFFF' }] },
-    { elementType: 'labels.text.fill', stylers: [{ color: '#333333' }] },
-    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#E0E0E0' }] },
-    { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#666666' }] },
-    { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#F5F5F5' }] },
-    { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#E8F5E9' }] },
-    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#CFE8FF' }] },
+    { elementType: 'labels.text.fill', stylers: [{ color: '#3B3B3B' }] },
+    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#F0F1F4' }] },
+    { featureType: 'road.local', elementType: 'geometry', stylers: [{ color: '#F7F8FA' }] },
+    { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#ECEDEF' }] },
+    { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#E6E7EA' }] },
+    { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#FAFAFA' }] },
+    { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#EAF7EE' }] },
+    { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#F5F6F8' }] },
+    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#D8ECFF' }] },
   ];
 
   useEffect(() => {
@@ -75,7 +68,14 @@ export default function ViewLocationsScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <MapView
+      {Platform.OS === 'web' ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <View style={{ backgroundColor: '#24283C', padding: 16, borderRadius: 12 }}>
+            <Text style={{ color: colors.primaryText }}>Map is not supported on web with your current setup. Please use a device.</Text>
+          </View>
+        </View>
+      ) : (
+      <MapViewComp
         provider={'google'}
         style={{ flex: 1 }}
         initialRegion={region}
@@ -101,12 +101,13 @@ export default function ViewLocationsScreen() {
           }
           return null;
         })}
-      </MapView>
-      <View style={{ position: 'absolute', top: 16, right: 16, flexDirection: 'row', gap: 8 }}>
-        <View style={{ backgroundColor: '#1F2234', borderRadius: 16, overflow: 'hidden', flexDirection: 'row' }}>
-          <Text onPress={() => setMode('traffic')} style={{ color: mode === 'traffic' ? colors.primaryText : colors.secondaryText, paddingHorizontal: 12, paddingVertical: 8 }}>Traffic</Text>
-          <Text onPress={() => setMode('satellite')} style={{ color: mode === 'satellite' ? colors.primaryText : colors.secondaryText, paddingHorizontal: 12, paddingVertical: 8 }}>Satellite</Text>
-          <Text onPress={() => setMode('hybrid')} style={{ color: mode === 'hybrid' ? colors.primaryText : colors.secondaryText, paddingHorizontal: 12, paddingVertical: 8 }}>Hybrid</Text>
+      </MapViewComp>
+      )}
+      <View style={{ position: 'absolute', left: 16, top: 0, bottom: 0, justifyContent: 'center' }}>
+        <View style={{ backgroundColor: '#1F2234', borderRadius: 16, overflow: 'hidden', flexDirection: 'column' }}>
+          <Text onPress={() => setMode('traffic')} style={{ color: mode === 'traffic' ? colors.primaryText : colors.secondaryText, paddingHorizontal: 12, paddingVertical: 10 }}>Traffic</Text>
+          <Text onPress={() => setMode('satellite')} style={{ color: mode === 'satellite' ? colors.primaryText : colors.secondaryText, paddingHorizontal: 12, paddingVertical: 10 }}>Satellite</Text>
+          <Text onPress={() => setMode('hybrid')} style={{ color: mode === 'hybrid' ? colors.primaryText : colors.secondaryText, paddingHorizontal: 12, paddingVertical: 10 }}>Hybrid</Text>
         </View>
       </View>
     </SafeAreaView>

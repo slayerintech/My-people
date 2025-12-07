@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { auth, db } from '../firebaseConfig';
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, signOut, deleteUser } from 'firebase/auth';
-import { arrayUnion, doc, getDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { arrayUnion, doc, getDoc, setDoc, updateDoc, deleteDoc, enableNetwork } from 'firebase/firestore';
 
 const AppContext = createContext(null);
 
@@ -11,24 +11,43 @@ export function AppProvider({ children }) {
   const [mapMode, setMapMode] = useState('traffic');
 
   useEffect(() => {
+    enableNetwork(db).catch(() => {});
     const unsub = onAuthStateChanged(auth, async (u) => {
       setUser(u);
       if (u) {
-        const ref = doc(db, 'users', u.uid);
-        const snap = await getDoc(ref);
-        if (!snap.exists()) {
-          await setDoc(ref, {
-            uid: u.uid,
-            name: u.displayName || '',
-            email: u.email || '',
-            sharingEnabled: false,
-            location: null,
-            visibleTo: [],
-            followedUsers: [],
-            allowFollow: true
-          });
-        } else {
-          setUsersById((prev) => ({ ...prev, [u.uid]: snap.data() }));
+        try {
+          const ref = doc(db, 'users', u.uid);
+          const snap = await getDoc(ref);
+          if (!snap.exists()) {
+            await setDoc(ref, {
+              uid: u.uid,
+              name: u.displayName || '',
+              email: u.email || '',
+              sharingEnabled: false,
+              location: null,
+              visibleTo: [],
+              followedUsers: [],
+              allowFollow: true,
+              createdAt: Date.now()
+            });
+          } else {
+            setUsersById((prev) => ({ ...prev, [u.uid]: snap.data() }));
+            const d = snap.data();
+            if (!d.createdAt) {
+              const meta = u.metadata?.creationTime ? Date.parse(u.metadata.creationTime) : Date.now();
+              await updateDoc(ref, { createdAt: meta });
+            }
+          }
+        } catch (e) {
+          setUsersById((prev) => ({
+            ...prev,
+            [u.uid]: {
+              uid: u.uid,
+              name: u.displayName || '',
+              email: u.email || '',
+              sharingEnabled: false
+            }
+          }));
         }
       }
     });
@@ -46,7 +65,8 @@ export function AppProvider({ children }) {
       location: null,
       visibleTo: [],
       followedUsers: [],
-      allowFollow: true
+      allowFollow: true,
+      createdAt: Date.now()
     });
   };
 
