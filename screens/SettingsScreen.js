@@ -17,6 +17,7 @@ export default function SettingsScreen() {
   const [profile, setProfile] = useState(null);
   const [allow, setAllow] = useState(true);
   const [confirm, setConfirm] = useState({ visible: false, type: null });
+  const [notice, setNotice] = useState(null);
 
   useEffect(() => {
     const load = async () => {
@@ -46,7 +47,7 @@ export default function SettingsScreen() {
       } catch {}
       await logout();
     } catch (e) {
-      Alert.alert('Logout failed', e.message);
+      setNotice(String(e.message || e));
     }
   };
 
@@ -81,6 +82,15 @@ export default function SettingsScreen() {
           setConfirm({ visible: false, type: null });
         }}
         onCancel={() => setConfirm({ visible: false, type: null })}
+      />
+      <Popup
+        visible={!!notice}
+        title={'Error'}
+        message={notice || ''}
+        confirmText={'OK'}
+        cancelText={'Cancel'}
+        onConfirm={() => setNotice(null)}
+        onCancel={() => setNotice(null)}
       />
     </SafeAreaView>
   );

@@ -1,19 +1,21 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, Alert, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Popup from '../components/Popup';
+ 
 const MapViewComp = Platform.OS === 'web' ? null : require('react-native-maps').default;
 const UserMarker = Platform.OS === 'web' ? null : require('../components/UserMarker').default;
 import * as Location from 'expo-location';
 import { colors, radius, shadow } from '../theme';
 import { useApp } from '../context/AppContext';
 import { auth, db } from '../firebaseConfig';
-import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, getDocFromCache, onSnapshot } from 'firebase/firestore';
 
 export default function ViewLocationsScreen() {
   const { user } = useApp();
   const [myLoc, setMyLoc] = useState(null);
   const [targets, setTargets] = useState([]);
-  const [mode, setMode] = useState('traffic');
+  const [popup, setPopup] = useState({ visible: false, title: '', message: '', confirmText: 'OK', cancelText: 'Cancel', onConfirm: null });
+  const mapRef = useRef(null);
   const mapStyle = [
     { elementType: 'geometry', stylers: [{ color: '#FFFFFF' }] },
     { elementType: 'labels.text.stroke', stylers: [{ color: '#FFFFFF' }] },
@@ -33,30 +35,44 @@ export default function ViewLocationsScreen() {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
-          Alert.alert('Permission required', 'Allow location to view your position on the map.');
+          setPopup({ visible: true, title: 'Permission required', message: 'Allow location to view your position on the map.', confirmText: 'OK', cancelText: 'Cancel', onConfirm: () => setPopup({ ...popup, visible: false }) });
           return;
         }
         const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
         setMyLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude });
         if (!auth.currentUser) return;
         // Load followed list and subscribe to each user doc for live updates
-        const meSnap = await getDoc(doc(db, 'users', auth.currentUser.uid));
-        const list = meSnap.data()?.followedUsers || [];
+        let list = [];
+        try {
+          const meSnap = await getDoc(doc(db, 'users', auth.currentUser.uid));
+          list = meSnap.data()?.followedUsers || [];
+        } catch {
+          try {
+            const csnap = await getDocFromCache(doc(db, 'users', auth.currentUser.uid));
+            list = csnap.data()?.followedUsers || [];
+          } catch {}
+        }
         const unsubs = [];
         list.forEach((uid) => {
-          const unsub = onSnapshot(doc(db, 'users', uid), (snap) => {
-            const d = snap.data();
-            setTargets((prev) => {
-              const next = prev.filter((p) => p.uid !== uid);
-              next.push({ uid, data: d });
-              return next;
-            });
-          });
+          const unsub = onSnapshot(
+            doc(db, 'users', uid),
+            (snap) => {
+              const d = snap.data();
+              setTargets((prev) => {
+                const next = prev.filter((p) => p.uid !== uid);
+                next.push({ uid, data: d });
+                return next;
+              });
+            },
+            () => {
+              // Ignore offline errors silently
+            }
+          );
           unsubs.push(unsub);
         });
         return () => unsubs.forEach((u) => u());
       } catch (e) {
-        Alert.alert('Error', e.message);
+        setPopup({ visible: true, title: 'Error', message: String(e.message || e), confirmText: 'OK', cancelText: 'Cancel', onConfirm: () => setPopup({ ...popup, visible: false }) });
       }
     };
     load();
@@ -66,8 +82,27 @@ export default function ViewLocationsScreen() {
     ? { latitude: myLoc.lat, longitude: myLoc.lng, latitudeDelta: 0.02, longitudeDelta: 0.02 }
     : { latitude: 37.78825, longitude: -122.4324, latitudeDelta: 0.0922, longitudeDelta: 0.0421 };
 
+  useEffect(() => {
+    if (Platform.OS === 'web' || !mapRef.current) return;
+    const coords = [];
+    if (myLoc) coords.push({ latitude: myLoc.lat, longitude: myLoc.lng });
+    targets.forEach((t) => {
+      const d = t.data;
+      const allowed = Array.isArray(d?.visibleTo) ? d.visibleTo.includes(auth.currentUser.uid) : false;
+      if (d?.sharingEnabled && d?.location && allowed) {
+        coords.push({ latitude: d.location.lat, longitude: d.location.lng });
+      }
+    });
+    if (coords.length === 0) return;
+    if (coords.length === 1) {
+      mapRef.current.animateToRegion({ latitude: coords[0].latitude, longitude: coords[0].longitude, latitudeDelta: 0.02, longitudeDelta: 0.02 }, 800);
+    } else {
+      mapRef.current.fitToCoordinates(coords, { edgePadding: { top: 80, right: 80, bottom: 80, left: 80 }, animated: true });
+    }
+  }, [targets, myLoc]);
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       {Platform.OS === 'web' ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <View style={{ backgroundColor: '#24283C', padding: 16, borderRadius: 12 }}>
@@ -76,13 +111,13 @@ export default function ViewLocationsScreen() {
         </View>
       ) : (
       <MapViewComp
+        ref={mapRef}
         provider={'google'}
         style={{ flex: 1 }}
         initialRegion={region}
-        region={region}
-        mapType={mode === 'satellite' ? 'satellite' : mode === 'hybrid' ? 'hybrid' : 'standard'}
-        showsTraffic={mode === 'traffic' || mode === 'hybrid'}
-        customMapStyle={mode === 'satellite' || mode === 'hybrid' ? undefined : mapStyle}
+        mapType={'hybrid'}
+        showsTraffic={true}
+        customMapStyle={undefined}
       >
         {myLoc ? (
           <UserMarker coordinate={{ latitude: myLoc.lat, longitude: myLoc.lng }} title={user?.displayName || 'Me'} />
@@ -103,13 +138,7 @@ export default function ViewLocationsScreen() {
         })}
       </MapViewComp>
       )}
-      <View style={{ position: 'absolute', left: 16, top: 0, bottom: 0, justifyContent: 'center' }}>
-        <View style={{ backgroundColor: '#1F2234', borderRadius: 16, overflow: 'hidden', flexDirection: 'column' }}>
-          <Text onPress={() => setMode('traffic')} style={{ color: mode === 'traffic' ? colors.primaryText : colors.secondaryText, paddingHorizontal: 12, paddingVertical: 10 }}>Traffic</Text>
-          <Text onPress={() => setMode('satellite')} style={{ color: mode === 'satellite' ? colors.primaryText : colors.secondaryText, paddingHorizontal: 12, paddingVertical: 10 }}>Satellite</Text>
-          <Text onPress={() => setMode('hybrid')} style={{ color: mode === 'hybrid' ? colors.primaryText : colors.secondaryText, paddingHorizontal: 12, paddingVertical: 10 }}>Hybrid</Text>
-        </View>
-      </View>
-    </SafeAreaView>
+      <Popup visible={popup.visible} title={popup.title} message={popup.message} confirmText={popup.confirmText} cancelText={popup.cancelText} onConfirm={popup.onConfirm} onCancel={() => setPopup({ ...popup, visible: false })} />
+    </View>
   );
 }
