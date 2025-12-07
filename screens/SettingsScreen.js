@@ -20,8 +20,8 @@ const colors = {
     danger: '#FF4D4D',
     separator: '#2A2F45',
     // Gradient colors for the header (Matching WelcomeScreen)
-    gradientStart: '#FF6A00',
-    gradientEnd: '#FF9900',
+    gradientStart: '#000000ff',
+    gradientEnd: '#ff6a00ae',
 };
 const radius = 16;
 const shadow = {
@@ -60,6 +60,7 @@ const styles = StyleSheet.create({
         backgroundColor: colors.card,
         alignItems: 'center',
         justifyContent: 'center',
+        marginTop: SPACING,
         borderWidth: 5,
         borderColor: colors.primaryText + '55',
         shadowColor: colors.primaryText,

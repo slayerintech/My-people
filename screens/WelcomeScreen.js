@@ -11,8 +11,8 @@ const colors = {
     primaryText: '#FFFFFF',
     secondaryText: '#8E99B0',
     accent: '#e26104ff',
-    gradientStart: '#FF6A00',
-    gradientEnd: '#FF9900' 
+    gradientStart: '#000000ff',
+    gradientEnd: '#ff6a00ae', 
 };
 const radius = 20;
 const shadow = {

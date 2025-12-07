@@ -18,8 +18,10 @@ const colors = {
     secondaryText: '#8E99B0',
     accent: '#e26104ff',
     // Gradient colors for the header
-    gradientStart: '#FF6A00',
-    gradientEnd: '#FF9900',
+    // gradientStart: '#ff6a00ae',
+    // gradientEnd: '#000000ff',
+    gradientStart: '#000000ff',
+    gradientEnd: '#ff6a00ae',
 };
 
 const shadow = {
