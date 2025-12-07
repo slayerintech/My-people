@@ -120,17 +120,19 @@ export default function ViewLocationsScreen() {
         customMapStyle={undefined}
       >
         {myLoc ? (
-          <UserMarker coordinate={{ latitude: myLoc.lat, longitude: myLoc.lng }} title={user?.displayName || 'Me'} />
+          <UserMarker coordinate={{ latitude: myLoc.lat, longitude: myLoc.lng }} title={user?.displayName || 'Me'} active={true} avatarUrl={user?.photoURL || user?.avatarUrl} />
         ) : null}
         {targets.map((t) => {
           const d = t.data;
           const allowed = Array.isArray(d?.visibleTo) ? d.visibleTo.includes(auth.currentUser.uid) : false;
-          if (d?.sharingEnabled && d?.location && allowed) {
+          if (d?.location) {
             return (
               <UserMarker
                 key={t.uid}
                 coordinate={{ latitude: d.location.lat, longitude: d.location.lng }}
-                title={d.name || t.uid}
+                title={d.displayName || d.name || t.uid}
+                active={Boolean(d.sharingEnabled && allowed)}
+                avatarUrl={d?.photoURL || d?.avatarUrl}
               />
             );
           }

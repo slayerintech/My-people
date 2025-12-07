@@ -4,6 +4,7 @@ export const colors = {
   primaryText: '#FFFFFF',
   secondaryText: '#8E99B0',
   accent: '#e26104ff',
+  success: '#2ecc71',
   gradientStart: '#FF6A00',
   gradientEnd: '#FF6A00'
 };

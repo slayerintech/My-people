@@ -16,6 +16,7 @@ const colors = {
     primaryText: '#FFFFFF',
     secondaryText: '#8E99B0',
     accent: '#e26104ff',
+    success: '#2ecc71',
     // Gradient colors for the header
     // gradientStart: '#ff6a00ae',
     // gradientEnd: '#000000ff',
@@ -221,7 +222,7 @@ function HomeHeader({ user, sharing, lastUpdated, startSharing, stopSharing }) {
                 style={styles.gradientArea}
             >
                 <Text style={styles.headerGreeting}>
-                    Hi, {user?.displayName || 'Traveler'}! 🚀
+                    Hi, {user?.displayName || 'Traveler'}! 
                 </Text>
                 <Text style={styles.headerSubtext}>
                     Manage your location sharing and view linked users here.
@@ -232,14 +233,14 @@ function HomeHeader({ user, sharing, lastUpdated, startSharing, stopSharing }) {
                         <Ionicons 
                             name={sharing ? "radio-button-on" : "radio-button-off"} 
                             size={24} 
-                            color={colors.primaryText} 
+                            color={sharing ? colors.success : colors.primaryText} 
                         />
                         <View>
                             <Text style={styles.toggleStatusLabel}>
                                 Live Location Broadcast
                             </Text>
                             <Text style={styles.toggleStatusText}>
-                                Status: <Text style={styles.toggleStatusValue}>
+                                Status: <Text style={[styles.toggleStatusValue, sharing ? { color: colors.success } : null]}>
                                     {sharing ? 'ACTIVE' : 'INACTIVE'}
                                 </Text>
                                 {lastUpdated ? ` · ${lastUpdated.toLocaleTimeString()}` : ''}
@@ -249,8 +250,8 @@ function HomeHeader({ user, sharing, lastUpdated, startSharing, stopSharing }) {
                     <Switch 
                         value={sharing} 
                         onValueChange={(v) => (v ? startSharing() : stopSharing())} 
-                        trackColor={{ false: colors.secondaryText + '33', true: colors.primaryText + 'CC' }} // Brighter track when ON
-                        thumbColor={colors.primaryText} 
+                        trackColor={{ false: colors.secondaryText + '33', true: colors.success }} 
+                        thumbColor={sharing ? colors.success : colors.primaryText} 
                     />
                 </View>
 
