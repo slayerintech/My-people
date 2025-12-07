@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, TextInput, Alert, Switch, ScrollView, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
@@ -494,7 +493,7 @@ export default function HomeScreen({ navigation }) {
     // --- UI Rendering ---
     return (
         <>
-        <SafeAreaView style={styles.safeArea}>
+        <View style={styles.safeArea}>
             <ScrollView contentContainerStyle={styles.scrollView}>
 
                 {/* 1. Gradient Home Header (Improved Contrast) */}
@@ -582,7 +581,7 @@ export default function HomeScreen({ navigation }) {
                 </View>
 
             </ScrollView>
-        </SafeAreaView>
+        </View>
         <Popup
             visible={popup.visible}
             title={popup.title}
