@@ -229,7 +229,7 @@ export default function MapScreen({ route, navigation }) {
           </Text>
         ) : !target?.sharingEnabled || !target?.location ? (
           <Text style={styles.statusMessage}>
-            <Ionicons name="alert-circle" size={16} color={colors.secondaryText} /> This user is currently **not sharing** their location.
+            <Ionicons name="alert-circle" size={16} color={colors.secondaryText} /> This user is currently not sharing their location.
           </Text>
         ) : (
           <Text style={styles.statusMessage}>
