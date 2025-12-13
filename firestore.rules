@@ -1,0 +1,89 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      function isAuthed() { return request.auth != null; }
+      function isSelf() { return isAuthed() && request.auth.uid == userId; }
+
+      function addingSelfToArray(newArr, oldArr) {
+        return newArr != null
+          && (
+            // Old array exists: must be exactly +1 and include all old items
+            (oldArr != null
+              && newArr.size() == oldArr.size() + 1
+              && newArr.hasAll(oldArr)
+              && (request.auth.uid in newArr)
+              && !(request.auth.uid in oldArr))
+            ||
+            // Old array missing: must be exactly [request.auth.uid]
+            (oldArr == null
+              && newArr.size() == 1
+              && (request.auth.uid in newArr))
+          );
+      }
+
+      function removingSelfFromArray(newArr, oldArr) {
+        return newArr != null
+          && oldArr != null
+          && newArr.size() == oldArr.size() - 1
+          && oldArr.hasAll(newArr)
+          && (request.auth.uid in oldArr)
+          && !(request.auth.uid in newArr);
+      }
+
+      // Read own doc, or allow reading others when:
+      // - they allow follow, OR
+      // - you are in their visibleTo, OR
+      // - there is a pending request from them to you
+      allow read: if isSelf() || (isAuthed() && (
+        resource.data.allowFollow != false
+        || (request.auth.uid in resource.data.visibleTo)
+        || exists(/databases/$(database)/documents/users/$(userId)/requests/$(request.auth.uid))
+        || exists(/databases/$(database)/documents/users/$(request.auth.uid)/requests/$(userId))
+      ));
+
+      // Create/delete own doc
+      allow create: if isSelf();
+      allow delete: if isSelf();
+
+      // Update own doc: restrict to known fields
+      allow update: if isSelf()
+        && request.resource.data.keys().hasOnly([
+          'displayName', 'photoURL', 'planTitle', 'sharingEnabled', 'location', 'followedUsers', 'visibleTo', 'createdAt'
+        ])
+        && (request.resource.data.followedUsers == null || request.resource.data.followedUsers is list)
+        && (request.resource.data.visibleTo == null || request.resource.data.visibleTo is list);
+
+      // Mutual linking: permit other users to add/remove themselves to/from visibleTo or followedUsers
+      // Only allow changes involving request.auth.uid; no third-party edits
+      allow update: if isAuthed() && !isSelf()
+        && request.resource.data.keys().hasOnly(['visibleTo', 'followedUsers'])
+        && (
+          addingSelfToArray(request.resource.data.visibleTo, resource.data.visibleTo)
+          || addingSelfToArray(request.resource.data.followedUsers, resource.data.followedUsers)
+          || removingSelfFromArray(request.resource.data.visibleTo, resource.data.visibleTo)
+          || removingSelfFromArray(request.resource.data.followedUsers, resource.data.followedUsers)
+        );
+    }
+
+    match /users/{userId}/requests/{requestId} {
+      function isAuthed() { return request.auth != null; }
+      // Only requester can create their own request doc under receiver's subcollection
+      allow create: if isAuthed() && request.auth.uid == requestId;
+      // Only receiver can read or delete requests addressed to them
+      allow read, delete: if isAuthed() && request.auth.uid == userId;
+    }
+
+    // Public profiles: names and avatars available to everyone
+    match /profiles/{userId} {
+      function isAuthed() { return request.auth != null; }
+      function isSelf() { return isAuthed() && request.auth.uid == userId; }
+      allow read: if true;
+      allow create, update: if isSelf()
+        && request.resource.data.keys().hasOnly(['displayName', 'photoURL'])
+        && (request.resource.data.displayName == null || request.resource.data.displayName is string)
+        && (request.resource.data.photoURL == null || request.resource.data.photoURL is string);
+      allow delete: if isSelf();
+    }
+  }
+}

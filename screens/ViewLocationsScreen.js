@@ -7,11 +7,14 @@ const UserMarker = Platform.OS === 'web' ? null : require('../components/UserMar
 import * as Location from 'expo-location';
 import { colors, radius, shadow } from '../theme';
 import { useApp } from '../context/AppContext';
+import { useRoute } from '@react-navigation/native';
 import { auth, db } from '../firebaseConfig';
 import { doc, getDoc, getDocFromCache, onSnapshot } from 'firebase/firestore';
 
 export default function ViewLocationsScreen() {
-  const { user } = useApp();
+  const { user, profilesById } = useApp();
+  const route = useRoute();
+  const focusUid = route?.params?.focusUid || null;
   const [myLoc, setMyLoc] = useState(null);
   const [targets, setTargets] = useState([]);
   const [popup, setPopup] = useState({ visible: false, title: '', message: '', confirmText: 'OK', cancelText: 'Cancel', onConfirm: null });
@@ -52,7 +55,21 @@ export default function ViewLocationsScreen() {
             list = csnap.data()?.followedUsers || [];
           } catch {}
         }
+        if (focusUid && !list.includes(focusUid)) list.push(focusUid);
         const unsubs = [];
+        for (const uid of list) {
+          try {
+            const csnap = await getDocFromCache(doc(db, 'users', uid));
+            if (csnap?.exists()) {
+              const d = csnap.data();
+              setTargets((prev) => {
+                const next = prev.filter((p) => p.uid !== uid);
+                next.push({ uid, data: d });
+                return next;
+              });
+            }
+          } catch {}
+        }
         list.forEach((uid) => {
           const unsub = onSnapshot(
             doc(db, 'users', uid),
@@ -76,7 +93,7 @@ export default function ViewLocationsScreen() {
       }
     };
     load();
-  }, []);
+  }, [focusUid]);
 
   const region = myLoc
     ? { latitude: myLoc.lat, longitude: myLoc.lng, latitudeDelta: 0.02, longitudeDelta: 0.02 }
@@ -88,18 +105,25 @@ export default function ViewLocationsScreen() {
     if (myLoc) coords.push({ latitude: myLoc.lat, longitude: myLoc.lng });
     targets.forEach((t) => {
       const d = t.data;
-      const allowed = Array.isArray(d?.visibleTo) ? d.visibleTo.includes(auth.currentUser.uid) : false;
-      if (d?.sharingEnabled && d?.location && allowed) {
+      if (d?.location) {
         coords.push({ latitude: d.location.lat, longitude: d.location.lng });
       }
     });
     if (coords.length === 0) return;
+    if (focusUid) {
+      const target = targets.find((t) => t.uid === focusUid);
+      const d = target?.data;
+      if (d?.location) {
+        mapRef.current.animateToRegion({ latitude: d.location.lat, longitude: d.location.lng, latitudeDelta: 0.01, longitudeDelta: 0.01 }, 800);
+        return;
+      }
+    }
     if (coords.length === 1) {
       mapRef.current.animateToRegion({ latitude: coords[0].latitude, longitude: coords[0].longitude, latitudeDelta: 0.02, longitudeDelta: 0.02 }, 800);
     } else {
       mapRef.current.fitToCoordinates(coords, { edgePadding: { top: 80, right: 80, bottom: 80, left: 80 }, animated: true });
     }
-  }, [targets, myLoc]);
+  }, [targets, myLoc, focusUid]);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -124,14 +148,13 @@ export default function ViewLocationsScreen() {
         ) : null}
         {targets.map((t) => {
           const d = t.data;
-          const allowed = Array.isArray(d?.visibleTo) ? d.visibleTo.includes(auth.currentUser.uid) : false;
           if (d?.location) {
             return (
               <UserMarker
                 key={t.uid}
                 coordinate={{ latitude: d.location.lat, longitude: d.location.lng }}
-                title={d.displayName || d.name || t.uid}
-                active={Boolean(d.sharingEnabled && allowed)}
+                title={(profilesById[t.uid]?.displayName) || d.displayName || d.name || d.username || 'Name not set'}
+                active={Boolean(d.sharingEnabled)}
                 avatarUrl={d?.photoURL || d?.avatarUrl}
               />
             );

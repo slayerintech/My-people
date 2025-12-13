@@ -1,7 +1,5 @@
 {
   "projects": {
-    "My people": "my-people-e78f6"
-  },
-  "targets": {},
-  "etags": {}
+    "default": "my-people-e78f6"
+  }
 }

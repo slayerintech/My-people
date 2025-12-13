@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, TextInput, Alert, Switch, ScrollView, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, Alert, Switch, ScrollView, StyleSheet, FlatList, ActivityIndicator, Modal } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Popup from '../components/Popup';
 import { auth, db } from '../firebaseConfig';
-import { arrayUnion, doc, getDoc, getDocFromCache, updateDoc, onSnapshot } from 'firebase/firestore';
+import { arrayUnion, arrayRemove, doc, getDoc, getDocFromCache, updateDoc, setDoc, onSnapshot, enableNetwork, collection, deleteDoc } from 'firebase/firestore';
 import { useApp } from '../context/AppContext';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -16,7 +18,6 @@ const colors = {
     primaryText: '#FFFFFF',
     secondaryText: '#8E99B0',
     accent: '#e26104ff',
-    success: '#2ecc71',
     // Gradient colors for the header
     // gradientStart: '#ff6a00ae',
     // gradientEnd: '#000000ff',
@@ -161,6 +162,7 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: colors.secondaryText + '33',
         paddingBottom: 8,
+        alignItems: 'center',
     },
     textInput: {
         color: colors.primaryText,
@@ -212,7 +214,7 @@ const styles = StyleSheet.create({
 
 // --- Home Header Component (Updated for visibility) ---
 
-function HomeHeader({ user, sharing, lastUpdated, startSharing, stopSharing }) {
+function HomeHeader({ user, sharing, lastUpdated, startSharing, stopSharing, onOpenRequests, pendingCount }) {
     return (
         <View style={styles.homeHeader}>
             <LinearGradient
@@ -221,9 +223,21 @@ function HomeHeader({ user, sharing, lastUpdated, startSharing, stopSharing }) {
                 end={{ x: 1, y: 1 }}
                 style={styles.gradientArea}
             >
-                <Text style={styles.headerGreeting}>
-                    Hi, {user?.displayName || 'Traveler'}! 
-                </Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={styles.headerGreeting}>
+                        Hi, {user?.displayName || 'Traveler'}! 🚀
+                    </Text>
+                    <TouchableOpacity onPress={onOpenRequests} style={{ padding: 8 }}>
+                        <View style={{ position: 'relative' }}>
+                            <MaterialIcons name="notifications" size={26} color={colors.primaryText} />
+                            {!!pendingCount && (
+                                <View style={{ position: 'absolute', top: -4, right: -4, backgroundColor: '#ff3b30', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 }}>
+                                    <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{pendingCount}</Text>
+                                </View>
+                            )}
+                        </View>
+                    </TouchableOpacity>
+                </View>
                 <Text style={styles.headerSubtext}>
                     Manage your location sharing and view linked users here.
                 </Text>
@@ -233,14 +247,14 @@ function HomeHeader({ user, sharing, lastUpdated, startSharing, stopSharing }) {
                         <Ionicons 
                             name={sharing ? "radio-button-on" : "radio-button-off"} 
                             size={24} 
-                            color={sharing ? colors.success : colors.primaryText} 
+                            color={colors.primaryText} 
                         />
                         <View>
                             <Text style={styles.toggleStatusLabel}>
-                                Live Location Broadcast
+                               Share Live Location 
                             </Text>
                             <Text style={styles.toggleStatusText}>
-                                Status: <Text style={[styles.toggleStatusValue, sharing ? { color: colors.success } : null]}>
+                                Status: <Text style={styles.toggleStatusValue}>
                                     {sharing ? 'ACTIVE' : 'INACTIVE'}
                                 </Text>
                                 {lastUpdated ? ` · ${lastUpdated.toLocaleTimeString()}` : ''}
@@ -250,8 +264,8 @@ function HomeHeader({ user, sharing, lastUpdated, startSharing, stopSharing }) {
                     <Switch 
                         value={sharing} 
                         onValueChange={(v) => (v ? startSharing() : stopSharing())} 
-                        trackColor={{ false: colors.secondaryText + '33', true: colors.success }} 
-                        thumbColor={sharing ? colors.success : colors.primaryText} 
+                        trackColor={{ false: colors.secondaryText + '33', true: colors.primaryText + 'CC' }} // Brighter track when ON
+                        thumbColor={colors.primaryText} 
                     />
                 </View>
 
@@ -282,20 +296,31 @@ function HomeHeader({ user, sharing, lastUpdated, startSharing, stopSharing }) {
 // -----------------------------------------------------------------------------------
 
 export default function HomeScreen({ navigation }) {
-    const { user, updateLocation, setSharingEnabled } = useApp();
+    const { user, updateLocation, setSharingEnabled, preFollowed, preTargets, profilesById } = useApp();
     const [sharing, setSharing] = useState(false);
     const [lastUpdated, setLastUpdated] = useState(null);
     const [isLinking, setIsLinking] = useState(false);
     const watcherRef = useRef(null);
+    const linkingTimerRef = useRef(null);
     const [code, setCode] = useState('');
     const [followed, setFollowed] = useState([]);
     const [targets, setTargets] = useState([]);
     const [planTitle, setPlanTitle] = useState(null);
     const [createdAt, setCreatedAt] = useState(null);
     const [popup, setPopup] = useState({ visible: false, title: '', message: '', confirmText: 'OK', cancelText: 'Cancel', onConfirm: null });
+    const [requests, setRequests] = useState([]);
+    const [requestsVisible, setRequestsVisible] = useState(false);
     const TASK_NAME = 'BACKGROUND_LOCATION_TASK';
 
     // --- Functionality (Unchanged logic) ---
+    useEffect(() => {
+        if (Array.isArray(preFollowed) && preFollowed.length > 0) {
+            setFollowed(preFollowed);
+        }
+        if (Array.isArray(preTargets) && preTargets.length > 0) {
+            setTargets(preTargets);
+        }
+    }, [preFollowed, preTargets]);
     useEffect(() => {
         setSharing(Boolean(user?.sharingEnabled));
         if (user?.location?.lastUpdated) setLastUpdated(new Date(user.location.lastUpdated));
@@ -323,6 +348,28 @@ export default function HomeScreen({ navigation }) {
                 setCreatedAt(data.createdAt || null);
                 
                 const unsubs = [];
+                for (const uid of followedList) {
+                    let usnap = null;
+                    try {
+                        const csnap = await getDocFromCache(doc(db, 'users', uid));
+                        if (csnap?.exists()) usnap = csnap;
+                    } catch {}
+                    if (!usnap) {
+                        try {
+                            const timeout = new Promise((resolve) => setTimeout(() => resolve('timeout'), 4000));
+                            const result = await Promise.race([getDoc(doc(db, 'users', uid)), timeout]);
+                            if (result !== 'timeout') usnap = result;
+                        } catch {}
+                    }
+                    if (usnap?.exists()) {
+                        const d = usnap.data();
+                        setTargets((prev) => {
+                            const next = prev.filter((p) => p.uid !== uid);
+                            next.push({ uid, data: d });
+                            return next;
+                        });
+                    }
+                }
                 
                 followedList.forEach((uid) => {
                     const unsub = onSnapshot(
@@ -352,7 +399,44 @@ export default function HomeScreen({ navigation }) {
                 watcherRef.current.remove();
             }
         };
-    }, [user?.sharingEnabled]);
+    }, [user?.uid]);
+
+    useEffect(() => {
+        if (!auth.currentUser) return;
+        const unsub = onSnapshot(doc(db, 'users', auth.currentUser.uid), async (snap) => {
+            const data = snap.data() || {};
+            const remote = Array.isArray(data.followedUsers) ? data.followedUsers : [];
+            let local = [];
+            try {
+                const s = await AsyncStorage.getItem(`followed:${auth.currentUser.uid}`);
+                local = s ? JSON.parse(s) : [];
+            } catch {}
+            const set = new Set([...(remote || []), ...(local || [])]);
+            setFollowed(Array.from(set));
+        }, () => {});
+        return () => unsub();
+    }, [auth.currentUser?.uid]);
+
+    useEffect(() => {
+        if (!auth.currentUser) return;
+        const ref = collection(db, 'users', auth.currentUser.uid, 'requests');
+        const unsub = onSnapshot(ref, async (snap) => {
+            const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+            setRequests(list.filter((r) => r.status !== 'accepted'));
+            try {
+                for (const d of snap.docs) {
+                    const data = d.data() || {};
+                    if (data.status === 'accepted') {
+                        try {
+                            await setDoc(doc(db, 'users', auth.currentUser.uid), { followedUsers: arrayUnion(d.id), visibleTo: arrayUnion(d.id) }, { merge: true });
+                        } catch {}
+                        // Keep the request doc to permit read of target until mutual linking fully completes
+                    }
+                }
+            } catch {}
+        }, () => {});
+        return () => unsub();
+    }, [auth.currentUser?.uid]);
 
     const startSharing = async () => {
         const signupTime = createdAt || (auth.currentUser?.metadata?.creationTime ? Date.parse(auth.currentUser.metadata.creationTime) : null);
@@ -410,91 +494,265 @@ export default function HomeScreen({ navigation }) {
         }
     };
 
+    const verifyLink = async (uid) => {
+        try {
+            if (!auth.currentUser || !uid) return;
+            const meRef = doc(db, 'users', auth.currentUser.uid);
+            const timeout = new Promise((resolve) => setTimeout(() => resolve('timeout'), 5000));
+            const res = await Promise.race([getDoc(meRef), timeout]);
+            if (res === 'timeout' || !res?.exists()) return;
+            const list = res.data()?.followedUsers || [];
+            if (!list.includes(uid)) {
+                setPopup({ visible: true, title: 'Link Not Saved', message: 'Connection did not save to your account. Please try again with internet.', confirmText: 'OK', cancelText: 'Cancel', onConfirm: () => setPopup({ ...popup, visible: false }) });
+                return;
+            }
+            const tsnap = await getDoc(doc(db, 'users', uid));
+            if (tsnap?.exists()) {
+                const d = tsnap.data();
+                setTargets((prev) => {
+                    const next = prev.filter((p) => p.uid !== uid);
+                    next.push({ uid, data: d });
+                    return next;
+                });
+            }
+        } catch {}
+    };
+
+    const requestDisconnect = (uid) => {
+        setPopup({
+            visible: true,
+            title: 'Disconnect User',
+            message: 'Are you sure you want to disconnect this user?',
+            confirmText: 'Disconnect',
+            cancelText: 'Cancel',
+            onConfirm: () => { setPopup({ ...popup, visible: false }); performDisconnect(uid); }
+        });
+    };
+
+    const performDisconnect = async (uid) => {
+        try {
+            if (!auth.currentUser || !uid) return;
+            try {
+                await updateDoc(doc(db, 'users', auth.currentUser.uid), { followedUsers: arrayRemove(uid), visibleTo: arrayRemove(uid) });
+            } catch (err1) {
+                const m1 = String(err1?.message || err1 || '').toLowerCase();
+                if (!(m1.includes('insufficient') || m1.includes('permission') || m1.includes('offline'))) {
+                    throw err1;
+                }
+            }
+            const nextList = followed.filter((f) => f !== uid);
+            setFollowed(nextList);
+            try { await AsyncStorage.setItem(`followed:${auth.currentUser.uid}`, JSON.stringify(nextList)); } catch {}
+            setTargets((prev) => prev.filter((t) => t.uid !== uid));
+            try {
+                await updateDoc(doc(db, 'users', uid), { followedUsers: arrayRemove(auth.currentUser.uid), visibleTo: arrayRemove(auth.currentUser.uid) });
+            } catch (err) {
+                const msg = String(err?.message || err || '').toLowerCase();
+                if (msg.includes('insufficient') || msg.includes('permission')) {
+                    // Ignore permission error on target doc; self removal is already done
+                } else {
+                    throw err;
+                }
+            }
+            setPopup({ visible: true, title: 'Disconnected', message: 'User disconnected. If they still see you, they can remove you from their side.', confirmText: 'OK', cancelText: 'Cancel', onConfirm: () => setPopup({ ...popup, visible: false }) });
+        } catch (e) {
+            setPopup({ visible: true, title: 'Error', message: String(e.message || e), confirmText: 'OK', cancelText: 'Cancel', onConfirm: () => setPopup({ ...popup, visible: false }) });
+        }
+    };
+
     const onAddFollow = async () => {
         if (isLinking) return;
 
         try {
             setIsLinking(true);
+            try { if (linkingTimerRef.current) clearTimeout(linkingTimerRef.current); } catch {}
+            linkingTimerRef.current = setTimeout(() => setIsLinking(false), 8000);
             const signupTime = createdAt || (auth.currentUser?.metadata?.creationTime ? Date.parse(auth.currentUser.metadata.creationTime) : null);
             const withinTrial = signupTime ? (Date.now() - signupTime) < (3 * 24 * 60 * 60 * 1000) : false;
             if (!planTitle && !withinTrial) {
                 setPopup({ visible: true, title: 'Subscription Required', message: 'Please subscribe to link and follow users.', confirmText: 'Subscribe', cancelText: 'Cancel', onConfirm: () => { setPopup({ ...popup, visible: false }); navigation.navigate('Subscription'); } });
+                setIsLinking(false);
                 return;
             }
 
             if (!code.trim()) {
                 setPopup({ visible: true, title: 'Missing Code', message: 'Please enter a user ID to follow.', confirmText: 'OK', cancelText: 'Cancel', onConfirm: () => setPopup({ ...popup, visible: false }) });
+                setIsLinking(false);
                 return;
             }
             const targetUid = code.trim();
             
             if (targetUid === auth.currentUser.uid) {
                 setPopup({ visible: true, title: 'Error', message: 'You cannot follow yourself.', confirmText: 'OK', cancelText: 'Cancel', onConfirm: () => setPopup({ ...popup, visible: false }) });
+                setIsLinking(false);
                 return;
             }
             if (followed.includes(targetUid)) {
                 setPopup({ visible: true, title: 'Already Following', message: 'You are already following this user.', confirmText: 'OK', cancelText: 'Cancel', onConfirm: () => setPopup({ ...popup, visible: false }) });
                 setCode('');
+                setIsLinking(false);
                 return;
             }
-
-            const targetRef = doc(db, 'users', targetUid);
-            const targetSnap = await getDoc(targetRef);
-            
-            if (!targetSnap.exists()) {
-                setPopup({ visible: true, title: 'Error', message: 'User ID not found. Check the code and try again.', confirmText: 'OK', cancelText: 'Cancel', onConfirm: () => setPopup({ ...popup, visible: false }) });
+            try {
+                await setDoc(doc(db, 'users', targetUid, 'requests', auth.currentUser.uid), {
+                    from: auth.currentUser.uid,
+                    createdAt: Date.now(),
+                    status: 'pending'
+                }, { merge: true });
+                setPopup({ visible: true, title: 'Request Sent', message: 'Connection request has been sent. They can accept or deny it.', confirmText: 'OK', cancelText: 'Cancel', onConfirm: () => setPopup({ ...popup, visible: false }) });
                 setCode('');
-                return;
+                const updated = followed.includes(targetUid) ? followed : [...followed, targetUid];
+                setFollowed(updated);
+                try { await AsyncStorage.setItem(`followed:${auth.currentUser.uid}`, JSON.stringify(updated)); } catch {}
+                try {
+                    const targetRef = doc(db, 'users', targetUid);
+                    const unsub = onSnapshot(targetRef, (snap) => {
+                        const d = snap.data();
+                        setTargets((prev) => {
+                            const next = prev.filter((p) => p.uid !== targetUid);
+                            if (d) next.push({ uid: targetUid, data: d });
+                            return next;
+                        });
+                    }, () => {});
+                } catch {}
+                // Seed my last location so receiver can see a 'Last Seen' immediately after acceptance
+                try {
+                    const { status } = await Location.requestForegroundPermissionsAsync();
+                    if (status === 'granted') {
+                        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+                        await updateDoc(doc(db, 'users', auth.currentUser.uid), {
+                            location: { lat: pos.coords.latitude, lng: pos.coords.longitude, lastUpdated: Date.now() }
+                        });
+                    }
+                } catch {}
+            } catch (err) {
+                const msg = String(err?.message || err || '');
+                setPopup({ visible: true, title: 'Error', message: msg, confirmText: 'OK', cancelText: 'Cancel', onConfirm: () => setPopup({ ...popup, visible: false }) });
             }
-
-            // 1. Update current user's followed list
-            await updateDoc(doc(db, 'users', auth.currentUser.uid), { followedUsers: arrayUnion(targetUid) });
-            
-            // 2. Update target user's visibility list
-            const t = targetSnap.data();
-            if (t.allowFollow !== false) {
-                await updateDoc(targetRef, { visibleTo: arrayUnion(auth.currentUser.uid) });
-            }
-
-            setCode('');
-            setPopup({ visible: true, title: 'Success', message: 'User linked successfully. You will see their location when they share.', confirmText: 'OK', cancelText: 'Cancel', onConfirm: () => setPopup({ ...popup, visible: false }) });
-            
-            // Re-fetch followed list to update UI
-            const snap = await getDoc(doc(db, 'users', auth.currentUser.uid));
-            setFollowed(snap.data()?.followedUsers || []);
             
         } catch (e) {
-            setPopup({ visible: true, title: 'Error', message: String(e.message || e), confirmText: 'OK', cancelText: 'Cancel', onConfirm: () => setPopup({ ...popup, visible: false }) });
+            const msg = String(e?.message || e || '');
+            setPopup({ visible: true, title: 'Error', message: msg, confirmText: 'OK', cancelText: 'Cancel', onConfirm: () => setPopup({ ...popup, visible: false }) });
         } finally {
+            try { if (linkingTimerRef.current) clearTimeout(linkingTimerRef.current); } catch {}
             setIsLinking(false);
         }
     };
 
-    const activeTargets = targets
-        .filter((t) => t.data?.sharingEnabled && t.data?.location)
-        .sort((a, b) => (b.data?.location?.lastUpdated || 0) - (a.data?.location?.lastUpdated || 0));
+    const acceptRequest = async (fromUid) => {
+        try {
+            if (!auth.currentUser || !fromUid) return;
+            // 1. Update my doc (always allowed)
+            try {
+                await setDoc(doc(db, 'users', auth.currentUser.uid), { followedUsers: arrayUnion(fromUid), visibleTo: arrayUnion(fromUid) }, { merge: true });
+            } catch (err0) {
+                const m0 = String(err0?.message || err0 || '').toLowerCase();
+                if (!(m0.includes('insufficient') || m0.includes('permission') || m0.includes('offline'))) {
+                    throw err0;
+                }
+            }
 
-    const inactiveFollowedCount = followed.length - activeTargets.length;
-    const isFollowingAnyone = followed.length > 0;
-    
-    const renderActiveTarget = ({ item }) => (
-        <View style={styles.followedUserItem}>
-            <Ionicons name="map" size={24} color={colors.accent} />
-            <View style={styles.followedUserInfo}>
-                <Text style={styles.followedUserName}>
-                    {item.data?.displayName || `User ID: ${item.uid.substring(0, 8)}...`}
-                </Text>
-                <Text style={styles.followedUserTime}>
-                    Last Seen: {new Date(item.data.location.lastUpdated).toLocaleTimeString()}
-                </Text>
+            // 2. Update target doc only if my uid not already present
+            try {
+                const tsnap = await getDoc(doc(db, 'users', fromUid));
+                const tdata = tsnap?.data() || {};
+                const needFollow = !Array.isArray(tdata.followedUsers) || !tdata.followedUsers.includes(auth.currentUser.uid);
+                const needVisible = !Array.isArray(tdata.visibleTo) || !tdata.visibleTo.includes(auth.currentUser.uid);
+                if (needFollow || needVisible) {
+                    const payload = {};
+                    if (needFollow) payload.followedUsers = arrayUnion(auth.currentUser.uid);
+                    if (needVisible) payload.visibleTo = arrayUnion(auth.currentUser.uid);
+                    await setDoc(doc(db, 'users', fromUid), payload, { merge: true });
+                }
+            } catch (err) {
+                const msg = String(err?.message || err || '').toLowerCase();
+                if (!(msg.includes('insufficient') || msg.includes('permission') || msg.includes('offline'))) {
+                    throw err;
+                }
+            }
+
+            // 3. Mark request as accepted (keep doc to permit reads), hide from UI list
+            try { await setDoc(doc(db, 'users', auth.currentUser.uid, 'requests', fromUid), { status: 'accepted' }, { merge: true }); } catch {}
+            setRequests((prev) => prev.filter((r) => r.id !== fromUid));
+
+            // 4. Update UI and start sharing
+            const updatedList = followed.includes(fromUid) ? followed : [...followed, fromUid];
+            setFollowed(updatedList);
+            try { await AsyncStorage.setItem(`followed:${auth.currentUser.uid}`, JSON.stringify(updatedList)); } catch {}
+            try { startSharing(); } catch {}
+            // One-shot current position write to ensure last location is available even if sharing stays off
+            try {
+                const { status } = await Location.requestForegroundPermissionsAsync();
+                if (status === 'granted') {
+                    const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+                    await updateDoc(doc(db, 'users', auth.currentUser.uid), {
+                        location: { lat: pos.coords.latitude, lng: pos.coords.longitude, lastUpdated: Date.now() }
+                    });
+                }
+            } catch {}
+            try {
+                const targetRef = doc(db, 'users', fromUid);
+                const unsub = onSnapshot(targetRef, (snap) => {
+                    const d = snap.data();
+                    setTargets((prev) => {
+                        const next = prev.filter((p) => p.uid !== fromUid);
+                        if (d) next.push({ uid: fromUid, data: d });
+                        return next;
+                    });
+                }, () => {});
+            } catch {}
+        } catch (e) {
+            setPopup({ visible: true, title: 'Error', message: String(e?.message || e), confirmText: 'OK', cancelText: 'Cancel', onConfirm: () => setPopup({ ...popup, visible: false }) });
+        }
+    };
+
+    const denyRequest = async (fromUid) => {
+        try {
+            await deleteDoc(doc(db, 'users', auth.currentUser.uid, 'requests', fromUid));
+            setRequests((prev) => prev.filter((r) => r.id !== fromUid));
+        } catch (e) {
+            setPopup({ visible: true, title: 'Error', message: String(e?.message || e), confirmText: 'OK', cancelText: 'Cancel', onConfirm: () => setPopup({ ...popup, visible: false }) });
+        }
+    };
+
+    const allFollowed = followed.map((uid) => {
+        const found = targets.find((t) => t.uid === uid);
+        const d = found?.data || null;
+        const prof = profilesById[uid] || {};
+        const name = prof.displayName || d?.displayName || d?.name || d?.username || (uid ? ('User ID: ' + uid.substring(0, 8) + '...') : 'Unknown');
+        const active = Boolean(d?.sharingEnabled);
+        const lastUpdated = d?.location?.lastUpdated || null;
+        return { uid, name, active, lastUpdated };
+    });
+
+    const allFollowedSorted = [...allFollowed].sort((a, b) => {
+        if (a.active !== b.active) return b.active ? 1 : -1;
+        return (b.lastUpdated || 0) - (a.lastUpdated || 0);
+    });
+
+    const renderFollowedItem = ({ item }) => (
+        <TouchableOpacity onPress={() => navigation.navigate('View', { focusUid: item.uid })}>
+            <View style={styles.followedUserItem}>
+                <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: item.active ? '#2ecc71' : '#ff3b30', marginRight: 10 }} />
+                <View style={styles.followedUserInfo}>
+                    <Text style={styles.followedUserName}>{item.name}</Text>
+                    {item.lastUpdated ? (
+                        <Text style={styles.followedUserTime}>Last Seen: {new Date(item.lastUpdated).toLocaleTimeString()}</Text>
+                    ) : (
+                        <Text style={styles.followedUserTime}>No last location yet</Text>
+                    )}
+                </View>
+                <TouchableOpacity onPress={() => requestDisconnect(item.uid)} style={{ paddingHorizontal: 4, paddingVertical: 4 }}>
+                    <Ionicons name="close-circle" size={20} color="#ff3b30" />
+                </TouchableOpacity>
             </View>
-        </View>
+        </TouchableOpacity>
     );
 
     // --- UI Rendering ---
     return (
         <>
-        <View style={styles.safeArea}>
+        <SafeAreaView style={styles.safeArea}>
             <ScrollView contentContainerStyle={styles.scrollView}>
 
                 {/* 1. Gradient Home Header (Improved Contrast) */}
@@ -504,12 +762,14 @@ export default function HomeScreen({ navigation }) {
                     lastUpdated={lastUpdated}
                     startSharing={startSharing}
                     stopSharing={stopSharing}
+                    onOpenRequests={() => setRequestsVisible(true)}
+                    pendingCount={requests.length}
                 />
         
                 {/* 2. Pairing / Linking Card */}
                 <View style={styles.card}>
                     <Text style={styles.sectionTitle}>
-                        <Ionicons name="person-add" size={20} color={colors.primaryText} /> Link New User
+                        <Ionicons name="person-add" size={20} color={colors.primaryText} /> Connect Peoples
                     </Text>
                     
                     <Text style={{ color: colors.secondaryText, marginBottom: 10 }}>
@@ -535,54 +795,76 @@ export default function HomeScreen({ navigation }) {
                         {isLinking ? (
                             <ActivityIndicator color={colors.primaryText} size="small" />
                         ) : (
-                            <Text style={styles.addButtonText}>Link & Follow</Text>
+                            <Text style={styles.addButtonText}>Connect</Text>
                         )}
                     </TouchableOpacity>
                 </View>
                 
-                {/* 3. Followed Users Status Card */}
+                {/* 3. Connected Users Status Card */}
                 <View style={styles.card}>
                     <Text style={styles.sectionTitle}>
-                        <MaterialIcons name="groups" size={22} color={colors.primaryText} /> Live Followed Users
+                        <MaterialIcons name="groups" size={22} color={colors.primaryText} /> Connected User
                     </Text>
+                    <Text style={{ color: colors.secondaryText, marginBottom: 10 }}>Connected: {allFollowed.length}</Text>
                     
-                    {activeTargets.length > 0 && (
+                    {allFollowed.length === 0 && (
+                        <View style={{ padding: 10, backgroundColor: inputBackground, borderRadius: radius * 0.5 }}>
+                            <Text style={styles.statusText}>
+                                No user connected
+                            </Text>
+                        </View>
+                    )}
+                    {allFollowed.length > 0 && (
                         <FlatList
-                            data={activeTargets}
-                            renderItem={renderActiveTarget}
+                            data={allFollowedSorted}
+                            renderItem={renderFollowedItem}
                             keyExtractor={(item) => item.uid}
                             scrollEnabled={false}
                             contentContainerStyle={{ marginBottom: 10 }}
                         />
                     )}
                     
-                    {isFollowingAnyone && inactiveFollowedCount > 0 && (
-                        <View style={{ padding: 10, backgroundColor: inputBackground, borderRadius: radius * 0.5, marginBottom: 10 }}>
-                            <Text style={styles.statusText}>
-                                ⚠️ {inactiveFollowedCount} linked user(s) are not currently broadcasting their location.
-                            </Text>
-                        </View>
-                    )}
-
-                    {activeTargets.length === 0 && !isFollowingAnyone && (
-                        <View style={{ padding: 10, backgroundColor: inputBackground, borderRadius: radius * 0.5 }}>
-                            <Text style={styles.statusText}>
-                                No users are linked yet. Use the "Link New User" section above to begin following someone.
-                            </Text>
-                        </View>
-                    )}
                     
-                    {activeTargets.length === 0 && isFollowingAnyone && inactiveFollowedCount === followed.length && (
-                        <View style={{ padding: 10, backgroundColor: inputBackground, borderRadius: radius * 0.5 }}>
-                            <Text style={styles.statusText}>
-                                No linked users are currently sharing their live location.
-                            </Text>
-                        </View>
-                    )}
                 </View>
 
             </ScrollView>
-        </View>
+        </SafeAreaView>
+        <Modal visible={requestsVisible} transparent animationType="slide" onRequestClose={() => setRequestsVisible(false)}>
+            <View style={{ flex: 1, backgroundColor: '#00000088', justifyContent: 'flex-end' }}>
+                <View style={{ backgroundColor: colors.card, padding: 16, borderTopLeftRadius: 16, borderTopRightRadius: 16, maxHeight: '60%' }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                        <Text style={{ color: colors.primaryText, fontSize: 18, fontWeight: '700' }}>Pending Requests</Text>
+                        <TouchableOpacity onPress={() => setRequestsVisible(false)}>
+                            <Ionicons name="close" size={24} color={colors.primaryText} />
+                        </TouchableOpacity>
+                    </View>
+                    {requests.length === 0 ? (
+                        <Text style={{ color: colors.secondaryText }}>No pending requests</Text>
+                    ) : (
+                        <FlatList
+                            data={requests}
+                            keyExtractor={(item) => item.id}
+                            renderItem={({ item }) => (
+                                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.secondaryText + '1A' }}>
+                                    <View style={{ flex: 1, marginRight: 12 }}>
+                                        <Text style={{ color: colors.primaryText, fontWeight: '600' }}>{item.id}</Text>
+                                        <Text style={{ color: colors.secondaryText, fontSize: 12 }}>Requested at {new Date(item.createdAt || Date.now()).toLocaleString()}</Text>
+                                    </View>
+                                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                                        <TouchableOpacity onPress={() => acceptRequest(item.id)} style={{ backgroundColor: colors.accent, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 }}>
+                                            <Text style={{ color: '#fff', fontWeight: '700' }}>Accept</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity onPress={() => denyRequest(item.id)} style={{ backgroundColor: '#ff3b30', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 }}>
+                                            <Text style={{ color: '#fff', fontWeight: '700' }}>Deny</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            )}
+                        />
+                    )}
+                </View>
+            </View>
+        </Modal>
         <Popup
             visible={popup.visible}
             title={popup.title}
