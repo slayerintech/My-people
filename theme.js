@@ -10,11 +10,11 @@ export const colors = {
 };
 
 export const shadow = {
-  shadowColor: colors.accent,
-  shadowOffset: { width: 0, height: 8 },
-  shadowOpacity: 0.35,
-  shadowRadius: 20,
-  elevation: 12
+  shadowColor: 'transparent',
+  shadowOffset: { width: 0, height: 0 },
+  shadowOpacity: 0,
+  shadowRadius: 0,
+  elevation: 0
 };
 
 export const radius = 20;

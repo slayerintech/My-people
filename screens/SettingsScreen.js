@@ -12,8 +12,8 @@ import { LinearGradient } from 'expo-linear-gradient'; // Import LinearGradient
 
 // --- Theme and Spacing Constants ---
 const colors = {
-    background: '#1A1D2E',
-    card: '#24283C',
+    background: '#060818ff',
+    card: '#1a1c2aff',
     primaryText: '#FFFFFF',
     secondaryText: '#8E99B0',
     accent: '#e26104ff',
@@ -25,11 +25,11 @@ const colors = {
 };
 const radius = 16;
 const shadow = {
-    shadowColor: colors.accent,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 5
+    shadowColor: 'transparent',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0
 };
 const SPACING = 24;
 const { height } = Dimensions.get('window');
@@ -63,10 +63,6 @@ const styles = StyleSheet.create({
         marginTop: SPACING,
         borderWidth: 5,
         borderColor: colors.primaryText + '55',
-        shadowColor: colors.primaryText,
-        shadowOpacity: 0.8,
-        shadowRadius: 15,
-        elevation: 12,
         marginBottom: 10,
     },
     nameText: {
@@ -151,9 +147,6 @@ function SettingsHeader({ name, email, planTitle }) {
             </View>
             <Text style={styles.nameText}>{name}</Text>
             <Text style={styles.emailText}>{email}</Text>
-            <View style={styles.planBadge}>
-                <Text style={styles.planText}>{planTitle || 'Basic Membership'}</Text>
-            </View>
         </LinearGradient>
     );
 }
@@ -322,7 +315,6 @@ export default function SettingsScreen() {
                 <Section title="General">
                     <RowNav icon="document-text" label="Privacy Policy" onPress={() => navigation.navigate('PrivacyPolicy')} />
                     <RowNav icon="document" label="Terms & Conditions" onPress={() => navigation.navigate('Terms')} />
-                    <RowNav icon="card" label="Subscription" onPress={() => navigation.navigate('Subscription')} />
                 </Section>
                 
                 {/* 4. Actions Section */}

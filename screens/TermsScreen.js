@@ -41,9 +41,6 @@ export default function TermsScreen() {
           <Text style={styles.sectionTitle}>User Conduct</Text>
           <Text style={styles.text}>You agree not to misuse the service, including but not limited to stalking, harassment, endangering others, reverse engineering, interfering with app operation, or violating laws and third‑party rights.</Text>
 
-          <Text style={styles.sectionTitle}>Subscription and Billing</Text>
-          <Text style={styles.text}>Certain features may require a paid subscription. All fees are displayed in the app or store listing. Subscriptions are managed through the store’s billing system and are subject to its policies. Taxes may apply.</Text>
-
           <Text style={styles.sectionTitle}>Privacy</Text>
           <Text style={styles.text}>Our handling of personal data, including location information, is described in the Privacy Policy. By using the app, you acknowledge and agree to the Privacy Policy.</Text>
 

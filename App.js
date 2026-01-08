@@ -13,7 +13,6 @@ import MapScreen from './screens/MapScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import PrivacyPolicyScreen from './screens/PrivacyPolicyScreen';
 import TermsScreen from './screens/TermsScreen';
-import SubscriptionScreen from './screens/SubscriptionScreen';
 import PairingScreen from './screens/PairingScreen';
 import { Ionicons } from '@expo/vector-icons';
 import { AppProvider, useApp } from './context/AppContext';
@@ -44,7 +43,6 @@ function InnerApp() {
           <Stack.Screen name="Map" component={MapScreen} />
           <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
           <Stack.Screen name="Terms" component={TermsScreen} />
-          <Stack.Screen name="Subscription" component={SubscriptionScreen} />
         </Stack.Navigator>
       ) : (
         <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -79,7 +77,7 @@ function MainTabs() {
           left: 16,
           right: 16,
           bottom: 12,
-          backgroundColor: colors.card,
+          backgroundColor: '#1a1c2aff',
           borderTopWidth: 0,
           height: 64,
           borderRadius: radius,

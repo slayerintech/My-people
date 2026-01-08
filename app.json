@@ -4,8 +4,7 @@
     "slug": "consent-location",
     "scheme": "consentlocation",
     "version": "1.0.0",
-  "orientation": "portrait",
-    
+    "orientation": "portrait",
     "updates": {
       "fallbackToCacheTimeout": 0
     },
@@ -17,6 +16,7 @@
     },
     "android": {
       "package": "com.cnsware.mypeople",
+      "googleServicesFile": "./google-services.json",
       "versionCode": 1,
       "permissions": [
         "ACCESS_FINE_LOCATION",
@@ -30,6 +30,11 @@
     },
     "plugins": [
       "expo-asset"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "3f350567-bbf3-4c54-b031-37b8c04e4f24"
+      }
+    }
   }
 }

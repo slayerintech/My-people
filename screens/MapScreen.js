@@ -53,8 +53,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 10,
     ...shadow,
-    shadowOpacity: 0.2,
-    elevation: 5,
   },
   headerText: {
     color: colors.primaryText,
@@ -84,8 +82,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     ...shadow,
-    shadowOpacity: 0.4,
-    elevation: 10,
   },
   statusMessage: {
     color: colors.primaryText,

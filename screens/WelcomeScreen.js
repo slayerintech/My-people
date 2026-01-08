@@ -6,8 +6,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 // --- Theme Imports (Keeping the consistent theme structure) ---
 const colors = {
-    background: '#1A1D2E',
-    card: '#24283C',
+    background: '#060818ff',
+    card: '#1a1c2aff',
     primaryText: '#FFFFFF',
     secondaryText: '#8E99B0',
     accent: '#e26104ff',
@@ -16,11 +16,11 @@ const colors = {
 };
 const radius = 20;
 const shadow = {
-    shadowColor: colors.accent,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 20,
-    elevation: 12
+    shadowColor: 'transparent',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0
 };
 
 const { height } = Dimensions.get('window');
@@ -51,9 +51,6 @@ const styles = StyleSheet.create({
         borderWidth: 5,
         borderColor: colors.primaryText + '55',
         ...shadow,
-        shadowOpacity: 0.8,
-        shadowRadius: 15,
-        shadowColor: colors.primaryText,
     },
     // SafeAreaView for the main content to ensure proper use of the screen area
     contentWrapper: {
@@ -107,9 +104,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: SPACING, // Space at the bottom of the screen
         ...shadow,
-        shadowOpacity: 0.7,
-        shadowRadius: 15,
-        shadowColor: colors.accent,
     },
     ctaText: {
         color: colors.primaryText,

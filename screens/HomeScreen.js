@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, TextInput, Alert, Switch, ScrollView, StyleSheet, FlatList, ActivityIndicator, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, Alert, Switch, ScrollView, StyleSheet, FlatList, ActivityIndicator, Modal, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import * as Clipboard from 'expo-clipboard';
@@ -13,139 +13,149 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 // --- Theme Imports ---
 const colors = {
-    background: '#1A1D2E',
-    card: '#24283C',
+    background: '#060818ff',
+    card: '#1a1c2aff',
     primaryText: '#FFFFFF',
     secondaryText: '#8E99B0',
     accent: '#e26104ff',
     // Gradient colors for the header
-    // gradientStart: '#ff6a00ae',
-    // gradientEnd: '#000000ff',
     gradientStart: '#000000ff',
     gradientEnd: '#ff6a00ae',
 };
 
 const shadow = {
-    shadowColor: colors.accent,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 20,
-    elevation: 12
+    shadowColor: 'transparent',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0
 };
 
 const radius = 20;
 const inputBackground = '#333852';
 const SPACING = 24;
+const { height } = Dimensions.get('window');
 
 // --- Stylesheet using the provided Theme ---
 const styles = StyleSheet.create({
-    safeArea: {
+    container: {
         flex: 1,
         backgroundColor: colors.background,
     },
-    scrollView: {
-        paddingHorizontal: 0,
-        paddingBottom: SPACING * 2,
+    headerGradient: {
+        height: height * 0.35,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderBottomLeftRadius: radius * 2,
+        borderBottomRightRadius: radius * 2,
+        paddingBottom: SPACING * 2, // Space for content inside gradient
     },
-    // --- Home Header Styles ---
-    homeHeader: {
-        width: '100%',
-        marginBottom: SPACING * 1.5,
-        ...shadow,
-        shadowOpacity: 0.4,
-        shadowRadius: 15,
-        shadowColor: colors.accent,
+    contentWrapper: {
+        flex: 1,
+        marginTop: -radius * 3, // Overlap the gradient
     },
-    gradientArea: {
-        padding: SPACING,
-        paddingTop: SPACING * 1.5,
-        borderBottomLeftRadius: radius * 2.5,
-        borderBottomRightRadius: radius * 2.5,
+    scrollContent: {
+        paddingBottom: SPACING * 4,
+    },
+    greetingContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 20,
     },
     headerGreeting: {
         color: colors.primaryText,
-        fontSize: 26,
+        fontSize: 28,
         fontWeight: '800',
         marginBottom: 5,
-        textAlign: 'left',
+        textAlign: 'center',
     },
     headerSubtext: {
         color: colors.primaryText + 'CC',
         fontSize: 14,
-        marginBottom: 20,
-        textAlign: 'left',
+        textAlign: 'center',
     },
-    // --- KEY CHANGE: Toggle Container with better contrast ---
+    notificationButton: {
+        position: 'absolute',
+        top: 60,
+        right: 20,
+        padding: 8,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        borderRadius: 20,
+    },
+    
+    // --- KEY CHANGE: Toggle Container as Overlapping Card ---
     headerSharingToggleContainer: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        backgroundColor: colors.card + '99', // Darker opaque background
-        borderRadius: radius * 0.75,
-        padding: 12,
+        backgroundColor: colors.card,
+        borderRadius: radius,
+        padding: 20,
+        marginHorizontal: SPACING,
+        marginBottom: 20,
         borderWidth: 1,
-        borderColor: colors.primaryText + '55',
+        borderColor: colors.primaryText + '11',
+        ...shadow,
     },
     toggleInfo: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 10,
+        gap: 12,
     },
     toggleStatusLabel: {
-        color: colors.primaryText, // Pure white for high visibility
+        color: colors.primaryText,
         fontSize: 16,
-        fontWeight: '600',
+        fontWeight: '700',
+        marginBottom: 2,
     },
     toggleStatusText: {
-        color: colors.primaryText + 'CC', // Slightly muted status text
-        fontSize: 14,
+        color: colors.secondaryText,
+        fontSize: 13,
     },
     toggleStatusValue: {
-        color: colors.primaryText, // Pure white for 'ACTIVE'/'INACTIVE'
+        color: colors.accent,
         fontWeight: '700',
     },
-    // --- UID Display Contrast Improvement ---
+
+    // --- UID Display ---
     uidDisplay: {
-        backgroundColor: colors.card + '99', // Dark opaque background
-        borderRadius: radius * 0.5,
-        padding: 15,
+        backgroundColor: colors.card,
+        borderRadius: radius,
+        padding: 20,
+        marginHorizontal: SPACING,
+        marginBottom: 20,
         alignItems: 'center',
-        marginTop: 15,
-        marginBottom: 10,
-        borderWidth: 1,
-        borderColor: colors.primaryText + '33',
+        ...shadow,
     },
     uidTextLabel: {
         color: colors.secondaryText,
         fontSize: 13,
-        marginBottom: 5
+        marginBottom: 8
     },
     uidText: {
         color: colors.primaryText,
-        fontSize: 16,
-        fontWeight: '600',
-        marginBottom: 10,
+        fontSize: 18,
+        fontWeight: '700',
+        marginBottom: 15,
         textAlign: 'center',
-        paddingHorizontal: 10,
+        letterSpacing: 1,
     },
     copyButton: {
-        backgroundColor: colors.primaryText,
-        borderRadius: radius * 0.3,
+        backgroundColor: colors.accent + '20', // Low opacity accent bg
+        borderRadius: radius * 0.5,
         paddingVertical: 10,
         paddingHorizontal: 20,
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        shadowOpacity: 0.3,
-        shadowRadius: 5,
-        shadowColor: colors.background,
-        elevation: 3,
     },
     copyButtonText: {
         color: colors.accent,
         fontWeight: '700',
+        fontSize: 14,
     },
-    // --- Card & Section Styles (Remains the same) ---
+    
+    // --- Card & Section Styles ---
     card: {
         backgroundColor: colors.card,
         borderRadius: radius,
@@ -159,10 +169,6 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: '700',
         marginBottom: 15,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.secondaryText + '33',
-        paddingBottom: 8,
-        alignItems: 'center',
     },
     textInput: {
         color: colors.primaryText,
@@ -180,10 +186,6 @@ const styles = StyleSheet.create({
         padding: 14,
         alignItems: 'center',
         marginTop: 5,
-        shadowOpacity: 0.5,
-        shadowRadius: 10,
-        shadowColor: colors.accent,
-        elevation: 5,
     },
     addButtonText: {
         color: colors.primaryText,
@@ -212,86 +214,7 @@ const styles = StyleSheet.create({
     }
 });
 
-// --- Home Header Component (Updated for visibility) ---
-
-function HomeHeader({ user, sharing, lastUpdated, startSharing, stopSharing, onOpenRequests, pendingCount }) {
-    return (
-        <View style={styles.homeHeader}>
-            <LinearGradient
-                colors={[colors.gradientStart, colors.gradientEnd]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.gradientArea}
-            >
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text style={styles.headerGreeting}>
-                        Hi, {user?.displayName || 'Traveler'}! 🚀
-                    </Text>
-                    <TouchableOpacity onPress={onOpenRequests} style={{ padding: 8 }}>
-                        <View style={{ position: 'relative' }}>
-                            <MaterialIcons name="notifications" size={26} color={colors.primaryText} />
-                            {!!pendingCount && (
-                                <View style={{ position: 'absolute', top: -4, right: -4, backgroundColor: '#ff3b30', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 }}>
-                                    <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{pendingCount}</Text>
-                                </View>
-                            )}
-                        </View>
-                    </TouchableOpacity>
-                </View>
-                <Text style={styles.headerSubtext}>
-                    Manage your location sharing and view linked users here.
-                </Text>
-
-                <View style={styles.headerSharingToggleContainer}>
-                    <View style={styles.toggleInfo}>
-                        <Ionicons 
-                            name={sharing ? "radio-button-on" : "radio-button-off"} 
-                            size={24} 
-                            color={colors.primaryText} 
-                        />
-                        <View>
-                            <Text style={styles.toggleStatusLabel}>
-                               Share Live Location 
-                            </Text>
-                            <Text style={styles.toggleStatusText}>
-                                Status: <Text style={styles.toggleStatusValue}>
-                                    {sharing ? 'ACTIVE' : 'INACTIVE'}
-                                </Text>
-                                {lastUpdated ? ` · ${lastUpdated.toLocaleTimeString()}` : ''}
-                            </Text>
-                        </View>
-                    </View>
-                    <Switch 
-                        value={sharing} 
-                        onValueChange={(v) => (v ? startSharing() : stopSharing())} 
-                        trackColor={{ false: colors.secondaryText + '33', true: colors.primaryText + 'CC' }} // Brighter track when ON
-                        thumbColor={colors.primaryText} 
-                    />
-                </View>
-
-                {/* Display UID and Copy button ONLY if sharing is active, inside the gradient */}
-                {sharing && (
-                    <View style={styles.uidDisplay}>
-                        <Text style={styles.uidTextLabel}>Your Unique Share Code:</Text>
-                        <Text style={styles.uidText} selectable={true}>
-                            {user?.uid}
-                        </Text>
-                        <TouchableOpacity 
-                            onPress={() => Clipboard.setStringAsync(user.uid).then(() => Alert.alert('Copied', 'Code copied to clipboard.'))} 
-                            style={styles.copyButton}
-                        >
-                            <Ionicons name="copy" color={colors.accent} size={16} />
-                            <Text style={styles.copyButtonText}>
-                                Copy Code
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
-                )}
-
-            </LinearGradient>
-        </View>
-    );
-}
+// --- Home Header Removed (Logic Inlined) ---
 
 // -----------------------------------------------------------------------------------
 
@@ -439,12 +362,6 @@ export default function HomeScreen({ navigation }) {
     }, [auth.currentUser?.uid]);
 
     const startSharing = async () => {
-        const signupTime = createdAt || (auth.currentUser?.metadata?.creationTime ? Date.parse(auth.currentUser.metadata.creationTime) : null);
-        const withinTrial = signupTime ? (Date.now() - signupTime) < (3 * 24 * 60 * 60 * 1000) : false;
-        if (!planTitle && !withinTrial) {
-            setPopup({ visible: true, title: 'Subscription Required', message: 'Please subscribe to continue using live location sharing.', confirmText: 'Subscribe', cancelText: 'Cancel', onConfirm: () => { setPopup({ ...popup, visible: false }); navigation.navigate('Subscription'); } });
-            return;
-        }
         try {
             const { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== 'granted') {
@@ -567,14 +484,7 @@ export default function HomeScreen({ navigation }) {
             setIsLinking(true);
             try { if (linkingTimerRef.current) clearTimeout(linkingTimerRef.current); } catch {}
             linkingTimerRef.current = setTimeout(() => setIsLinking(false), 8000);
-            const signupTime = createdAt || (auth.currentUser?.metadata?.creationTime ? Date.parse(auth.currentUser.metadata.creationTime) : null);
-            const withinTrial = signupTime ? (Date.now() - signupTime) < (3 * 24 * 60 * 60 * 1000) : false;
-            if (!planTitle && !withinTrial) {
-                setPopup({ visible: true, title: 'Subscription Required', message: 'Please subscribe to link and follow users.', confirmText: 'Subscribe', cancelText: 'Cancel', onConfirm: () => { setPopup({ ...popup, visible: false }); navigation.navigate('Subscription'); } });
-                setIsLinking(false);
-                return;
-            }
-
+            
             if (!code.trim()) {
                 setPopup({ visible: true, title: 'Missing Code', message: 'Please enter a user ID to follow.', confirmText: 'OK', cancelText: 'Cancel', onConfirm: () => setPopup({ ...popup, visible: false }) });
                 setIsLinking(false);
@@ -751,129 +661,192 @@ export default function HomeScreen({ navigation }) {
 
     // --- UI Rendering ---
     return (
-        <>
-        <SafeAreaView style={styles.safeArea}>
-            <ScrollView contentContainerStyle={styles.scrollView}>
-
-                {/* 1. Gradient Home Header (Improved Contrast) */}
-                <HomeHeader
-                    user={user}
-                    sharing={sharing}
-                    lastUpdated={lastUpdated}
-                    startSharing={startSharing}
-                    stopSharing={stopSharing}
-                    onOpenRequests={() => setRequestsVisible(true)}
-                    pendingCount={requests.length}
-                />
-        
-                {/* 2. Pairing / Linking Card */}
-                <View style={styles.card}>
-                    <Text style={styles.sectionTitle}>
-                        <Ionicons name="person-add" size={20} color={colors.primaryText} /> Connect Peoples
+        <View style={styles.container}>
+            {/* 1. Gradient Header with Greeting */}
+            <LinearGradient
+                colors={[colors.gradientStart, colors.gradientEnd]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.headerGradient}
+            >
+                <View style={styles.greetingContainer}>
+                     <Text style={styles.headerGreeting}>
+                        Hi, {user?.displayName || 'Traveler'}! 🚀
                     </Text>
-                    
-                    <Text style={{ color: colors.secondaryText, marginBottom: 10 }}>
-                        Paste the other user's share code (UID) here to start following them:
+                    <Text style={styles.headerSubtext}>
+                        Manage your location sharing
                     </Text>
-                    
-                    <TextInput
-                        value={code}
-                        onChangeText={setCode}
-                        placeholder="Enter 28-character UID to follow"
-                        placeholderTextColor={colors.secondaryText + '99'}
-                        style={styles.textInput}
-                        autoCapitalize="none"
-                        keyboardAppearance="dark"
-                        editable={!isLinking}
-                    />
-                    
-                    <TouchableOpacity 
-                        onPress={onAddFollow} 
-                        style={[styles.addButton, { opacity: isLinking ? 0.7 : 1 }]}
-                        disabled={isLinking}
-                    >
-                        {isLinking ? (
-                            <ActivityIndicator color={colors.primaryText} size="small" />
-                        ) : (
-                            <Text style={styles.addButtonText}>Connect</Text>
-                        )}
-                    </TouchableOpacity>
                 </View>
                 
-                {/* 3. Connected Users Status Card */}
-                <View style={styles.card}>
-                    <Text style={styles.sectionTitle}>
-                        <MaterialIcons name="groups" size={22} color={colors.primaryText} /> Connected User
-                    </Text>
-                    <Text style={{ color: colors.secondaryText, marginBottom: 10 }}>Connected: {allFollowed.length}</Text>
+                <TouchableOpacity onPress={() => setRequestsVisible(true)} style={styles.notificationButton}>
+                    <View style={{ position: 'relative' }}>
+                        <MaterialIcons name="notifications" size={26} color={colors.primaryText} />
+                        {!!requests.length && (
+                            <View style={{ position: 'absolute', top: -4, right: -4, backgroundColor: '#ff3b30', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 }}>
+                                <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{requests.length}</Text>
+                            </View>
+                        )}
+                    </View>
+                </TouchableOpacity>
+            </LinearGradient>
+
+            {/* 2. Overlapping Content */}
+            <SafeAreaView style={styles.contentWrapper} edges={['bottom', 'left', 'right']}>
+                <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                     
-                    {allFollowed.length === 0 && (
-                        <View style={{ padding: 10, backgroundColor: inputBackground, borderRadius: radius * 0.5 }}>
-                            <Text style={styles.statusText}>
-                                No user connected
+                    {/* Toggle Card (Overlapping) */}
+                    <View style={styles.headerSharingToggleContainer}>
+                        <View style={styles.toggleInfo}>
+                            <Ionicons 
+                                name={sharing ? "radio-button-on" : "radio-button-off"} 
+                                size={24} 
+                                color={colors.primaryText} 
+                            />
+                            <View>
+                                <Text style={styles.toggleStatusLabel}>
+                                   Share Live Location 
+                                </Text>
+                                <Text style={styles.toggleStatusText}>
+                                    Status: <Text style={styles.toggleStatusValue}>
+                                        {sharing ? 'ACTIVE' : 'INACTIVE'}
+                                    </Text>
+                                    {lastUpdated ? ` · ${lastUpdated.toLocaleTimeString()}` : ''}
+                                </Text>
+                            </View>
+                        </View>
+                        <Switch 
+                            value={sharing} 
+                            onValueChange={(v) => (v ? startSharing() : stopSharing())} 
+                            trackColor={{ false: colors.secondaryText + '33', true: colors.primaryText + 'CC' }} 
+                            thumbColor={colors.primaryText} 
+                        />
+                    </View>
+
+                    {/* UID Display (if active) */}
+                    {sharing && (
+                        <View style={styles.uidDisplay}>
+                            <Text style={styles.uidTextLabel}>Your Unique Share Code</Text>
+                            <Text style={styles.uidText} selectable={true}>
+                                {user?.uid}
                             </Text>
+                            <TouchableOpacity 
+                                onPress={() => Clipboard.setStringAsync(user.uid).then(() => Alert.alert('Copied', 'Code copied to clipboard.'))} 
+                                style={styles.copyButton}
+                            >
+                                <Ionicons name="copy" color={colors.accent} size={16} />
+                                <Text style={styles.copyButtonText}>
+                                    Copy Code
+                                </Text>
+                            </TouchableOpacity>
                         </View>
                     )}
-                    {allFollowed.length > 0 && (
-                        <FlatList
-                            data={allFollowedSorted}
-                            renderItem={renderFollowedItem}
-                            keyExtractor={(item) => item.uid}
-                            scrollEnabled={false}
-                            contentContainerStyle={{ marginBottom: 10 }}
-                        />
-                    )}
-                    
-                    
-                </View>
 
-            </ScrollView>
-        </SafeAreaView>
-        <Modal visible={requestsVisible} transparent animationType="slide" onRequestClose={() => setRequestsVisible(false)}>
-            <View style={{ flex: 1, backgroundColor: '#00000088', justifyContent: 'flex-end' }}>
-                <View style={{ backgroundColor: colors.card, padding: 16, borderTopLeftRadius: 16, borderTopRightRadius: 16, maxHeight: '60%' }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                        <Text style={{ color: colors.primaryText, fontSize: 18, fontWeight: '700' }}>Pending Requests</Text>
-                        <TouchableOpacity onPress={() => setRequestsVisible(false)}>
-                            <Ionicons name="close" size={24} color={colors.primaryText} />
+                    {/* Pairing / Linking Card */}
+                    <View style={styles.card}>
+                        <Text style={styles.sectionTitle}>
+                            <Ionicons name="person-add" size={20} color={colors.primaryText} /> Connect People
+                        </Text>
+                        
+                        <Text style={{ color: colors.secondaryText, marginBottom: 10 }}>
+                            Paste the other user's share code (UID) here to start following them:
+                        </Text>
+                        
+                        <TextInput
+                            value={code}
+                            onChangeText={setCode}
+                            placeholder="Enter 28-character UID to follow"
+                            placeholderTextColor={colors.secondaryText + '99'}
+                            style={styles.textInput}
+                            autoCapitalize="none"
+                            keyboardAppearance="dark"
+                            editable={!isLinking}
+                        />
+                        
+                        <TouchableOpacity 
+                            onPress={onAddFollow} 
+                            style={[styles.addButton, { opacity: isLinking ? 0.7 : 1 }]}
+                            disabled={isLinking}
+                        >
+                            {isLinking ? (
+                                <ActivityIndicator color={colors.primaryText} size="small" />
+                            ) : (
+                                <Text style={styles.addButtonText}>Connect</Text>
+                            )}
                         </TouchableOpacity>
                     </View>
-                    {requests.length === 0 ? (
-                        <Text style={{ color: colors.secondaryText }}>No pending requests</Text>
-                    ) : (
-                        <FlatList
-                            data={requests}
-                            keyExtractor={(item) => item.id}
-                            renderItem={({ item }) => (
-                                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.secondaryText + '1A' }}>
-                                    <View style={{ flex: 1, marginRight: 12 }}>
-                                        <Text style={{ color: colors.primaryText, fontWeight: '600' }}>{item.id}</Text>
-                                        <Text style={{ color: colors.secondaryText, fontSize: 12 }}>Requested at {new Date(item.createdAt || Date.now()).toLocaleString()}</Text>
+                    
+                    {/* Connected Users Status Card */}
+                    <View style={styles.card}>
+                        <Text style={styles.sectionTitle}>
+                            <MaterialIcons name="groups" size={22} color={colors.primaryText} /> Connected Users
+                        </Text>
+                        <Text style={{ color: colors.secondaryText, marginBottom: 10 }}>Connected: {allFollowed.length}</Text>
+                        
+                        {allFollowed.length === 0 && (
+                            <View style={{ padding: 10, backgroundColor: inputBackground, borderRadius: radius * 0.5 }}>
+                                <Text style={styles.statusText}>
+                                    No user connected
+                                </Text>
+                            </View>
+                        )}
+                        {allFollowed.length > 0 && (
+                            <FlatList
+                                data={allFollowedSorted}
+                                renderItem={renderFollowedItem}
+                                keyExtractor={(item) => item.uid}
+                                scrollEnabled={false}
+                                contentContainerStyle={{ marginBottom: 10 }}
+                            />
+                        )}
+                    </View>
+
+                </ScrollView>
+            </SafeAreaView>
+            <Modal visible={requestsVisible} transparent animationType="slide" onRequestClose={() => setRequestsVisible(false)}>
+                <View style={{ flex: 1, backgroundColor: '#00000088', justifyContent: 'flex-end' }}>
+                    <View style={{ backgroundColor: colors.card, padding: 16, borderTopLeftRadius: 16, borderTopRightRadius: 16, maxHeight: '60%' }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                            <Text style={{ color: colors.primaryText, fontSize: 18, fontWeight: '700' }}>Pending Requests</Text>
+                            <TouchableOpacity onPress={() => setRequestsVisible(false)}>
+                                <Ionicons name="close" size={24} color={colors.primaryText} />
+                            </TouchableOpacity>
+                        </View>
+                        {requests.length === 0 ? (
+                            <Text style={{ color: colors.secondaryText }}>No pending requests</Text>
+                        ) : (
+                            <FlatList
+                                data={requests}
+                                keyExtractor={(item) => item.id}
+                                renderItem={({ item }) => (
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.secondaryText + '1A' }}>
+                                        <View style={{ flex: 1, marginRight: 12 }}>
+                                            <Text style={{ color: colors.primaryText, fontWeight: '600' }}>{item.id}</Text>
+                                            <Text style={{ color: colors.secondaryText, fontSize: 12 }}>Requested at {new Date(item.createdAt || Date.now()).toLocaleString()}</Text>
+                                        </View>
+                                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                                            <TouchableOpacity onPress={() => acceptRequest(item.id)} style={{ backgroundColor: colors.accent, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 }}>
+                                                <Text style={{ color: '#fff', fontWeight: '700' }}>Accept</Text>
+                                            </TouchableOpacity>
+                                            <TouchableOpacity onPress={() => denyRequest(item.id)} style={{ backgroundColor: '#ff3b30', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 }}>
+                                                <Text style={{ color: '#fff', fontWeight: '700' }}>Deny</Text>
+                                            </TouchableOpacity>
+                                        </View>
                                     </View>
-                                    <View style={{ flexDirection: 'row', gap: 8 }}>
-                                        <TouchableOpacity onPress={() => acceptRequest(item.id)} style={{ backgroundColor: colors.accent, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 }}>
-                                            <Text style={{ color: '#fff', fontWeight: '700' }}>Accept</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity onPress={() => denyRequest(item.id)} style={{ backgroundColor: '#ff3b30', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 }}>
-                                            <Text style={{ color: '#fff', fontWeight: '700' }}>Deny</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>
-                            )}
-                        />
-                    )}
+                                )}
+                            />
+                        )}
+                    </View>
                 </View>
-            </View>
-        </Modal>
-        <Popup
-            visible={popup.visible}
-            title={popup.title}
-            message={popup.message}
-            confirmText={popup.confirmText}
-            cancelText={popup.cancelText}
-            onConfirm={popup.onConfirm}
-            onCancel={() => setPopup({ ...popup, visible: false })}
-        />
-        </>
+            </Modal>
+            <Popup
+                visible={popup.visible}
+                title={popup.title}
+                message={popup.message}
+                confirmText={popup.confirmText}
+                cancelText={popup.cancelText}
+                onConfirm={popup.onConfirm}
+                onCancel={() => setPopup({ ...popup, visible: false })}
+            />
+        </View>
     );
 }
